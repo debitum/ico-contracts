@@ -6,12 +6,15 @@ contract('Crowdsale.sol', function (accounts) {
     let crowdsale;
 
     beforeEach('setup contract for each test', async function () {
-        let now = Math.round(new Date().getTime()/1000);
-        crowdsale = await Crowdsale.new( now, now + 3600, accounts[7], 0, 0, 0, 0, 0, 0);
+        let now = Math.round(new Date().getTime() / 1000);
+        crowdsale = await Crowdsale.new(now, now + 3600, accounts[7], 0, 0, 0, 0, 0, 0);
     });
 
     it("When hard cap is reached then 60% of token supply is sent", async function () {
-        let tokenAmount = await crowdsale.calculateTokenAmountFor(0, web3.toWei(200000.001, 'ether'), {from: accounts[1], gass: 3000000});
+        let tokenAmount = await crowdsale.calculateTokenAmountFor(0, web3.toWei(200000.001, 'ether'), {
+            from: accounts[1],
+            gass: 3000000
+        });
         assert.equal(tokenAmount.toNumber(), web3.toWei(600000000, 'ether'), "600M tokens sold");
     });
 
@@ -45,8 +48,8 @@ contract('Crowdsale.sol', function (accounts) {
         assert.equal(limit.toNumber(), web3.toWei(epsilon, 'ether'));
     });
 
-    it("When hard cap is reached then crowdsale is finished", async function() {
-        let now = Math.round(new Date().getTime()/1000);
+    it("When hard cap is reached then crowdsale is finished", async function () {
+        let now = Math.round(new Date().getTime() / 1000);
         crowdsale = await Crowdsale.new(
             now,
             now + 3600,
@@ -95,9 +98,9 @@ contract('Crowdsale.sol', function (accounts) {
 
     });
 
-    it("If minimal cap is not reached till crowdsale end then all investments returned to investors", async function() {
+    it("If minimal cap is not reached till crowdsale end then all investments returned to investors", async function () {
         //given
-        let now = Math.round(new Date().getTime()/1000);
+        let now = Math.round(new Date().getTime() / 1000);
         crowdsale = await Crowdsale.new(
             now,
             now + 1,
@@ -123,7 +126,8 @@ contract('Crowdsale.sol', function (accounts) {
         let initialBalance = web3.eth.getBalance(web3.eth.accounts[2]);
 
         //when
-        while(Math.round(new Date().getTime()/1000) - 3 <= (await crowdsale.endsAt()).toNumber()){}
+        while (Math.round(new Date().getTime() / 1000) - 3 <= (await crowdsale.endsAt()).toNumber()) {
+        }
         await crowdsale.finalizeCrowdsale();
 
         //then
@@ -132,7 +136,7 @@ contract('Crowdsale.sol', function (accounts) {
 
     });
 
-    it("Must not let invest more then 30eth for not verified investors", async function() {
+    it("Must not let invest more then 30eth for not verified investors", async function () {
         //given
         let transferError;
         let NOT_REGISTERED_USER = web3.eth.accounts[1];
@@ -155,7 +159,7 @@ contract('Crowdsale.sol', function (accounts) {
                     value: web3.toWei(31, 'ether'),
                 }
             );
-        } catch(error) {
+        } catch (error) {
             transferError = error;
         }
 
@@ -163,9 +167,9 @@ contract('Crowdsale.sol', function (accounts) {
         assert.notEqual(transferError, undefined, 'Error must be thrown, when not registered user tries to send ether to crowdsale');
     });
 
-    it("Only signer can register crowdsale participant", async function() {
-    //given
-        let now = Math.round(new Date().getTime()/1000);
+    it("Only signer can register crowdsale participant", async function () {
+        //given
+        let now = Math.round(new Date().getTime() / 1000);
         let SIGNER = accounts[0];
         crowdsale = await Crowdsale.new(
             now,
@@ -180,9 +184,121 @@ contract('Crowdsale.sol', function (accounts) {
         );
     });
 
-    it("After crowdsale all not sold tokens are transfered to wallet", async function() {
+    it("Let decrease initial hard cap if wei is not raised till new hard cap", async function () {
         //given
-        let now = Math.round(new Date().getTime()/1000);
+        let transferError;
+        let now = Math.round(new Date().getTime() / 1000);
+        let SIGNER = accounts[0];
+        crowdsale = await Crowdsale.new(
+            now,
+            now + 3600,
+            SIGNER,
+            web3.toWei(1, 'ether'),
+            3750,
+            web3.toWei(2, 'ether'),
+            3300,
+            web3.toWei(5, 'ether'),
+            2888
+        );
+
+        //when
+        try {
+            await crowdsale.canChangeHardCap(web3.toWei(4, 'ether'));
+        }catch (error) {
+            transferError = error;
+        }
+
+        await crowdsale.changeHardCap(web3.toWei(4.1, 'ether'));
+        await crowdsale.signCrowdsaleParticipant(web3.eth.accounts[2], "some-dummy-token");
+
+
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[2],
+                to: contract.address,
+                value: web3.toWei(5, 'ether'),
+            }
+        );
+
+        //then
+        assert.notEqual(transferError, undefined, 'Error must be thrown, when new hard cap value is lower or equal when wei raised');
+        assert.equal((await  crowdsale.weiRaised()).toNumber(), web3.toWei(4.1, 'ether'), "Wei raised till new hard cap");
+    });
+
+    it("Hard cap can not be increased above of initial hard cap", async function () {
+        //given
+        let transferError;
+        let now = Math.round(new Date().getTime() / 1000);
+        let SIGNER = accounts[0];
+        crowdsale = await Crowdsale.new(
+            now,
+            now + 3600,
+            SIGNER,
+            web3.toWei(1, 'ether'),
+            3750,
+            web3.toWei(2, 'ether'),
+            3300,
+            web3.toWei(5, 'ether'),
+            2888
+        );
+
+        //when
+        await crowdsale.changeHardCap(web3.toWei(4.1, 'ether'));
+        try {
+            await crowdsale.canChangeHardCap(web3.toWei(5.001, 'ether'));
+        }catch (error) {
+            transferError = error;
+        }
+
+        //then
+        assert.notEqual(transferError, undefined, 'Error must be thrown, when new hard cap value is above initial hard cap');
+    });
+
+    it("Wont accept investments bellow 0.1 ether", async function () {
+        //given
+        let transferError;
+        let now = Math.round(new Date().getTime() / 1000);
+        let SIGNER = accounts[0];
+        crowdsale = await Crowdsale.new(
+            now,
+            now + 3600,
+            SIGNER,
+            web3.toWei(1, 'ether'),
+            3750,
+            web3.toWei(2, 'ether'),
+            3300,
+            web3.toWei(5, 'ether'),
+            2888
+        );
+
+        //when
+        try {
+            await crowdsale.sendTransaction(
+                {
+                    from: web3.eth.accounts[2],
+                    to: contract.address,
+                    value: web3.toWei(0.099, 'ether'),
+                }
+            );
+        }catch (error) {
+            transferError = error;
+        }
+
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[2],
+                to: contract.address,
+                value: web3.toWei(0.1, 'ether'),
+            }
+        );
+
+        //then
+        assert.notEqual(transferError, undefined, 'Error must be thrown, when tries to invest below 0.1 ether');
+    });
+
+    it("After crowdsale all not sold tokens are transfered to wallet", async function () {
+        //given
+        let now = Math.round(new Date().getTime() / 1000);
         let additionalOwners = accounts.slice(1, 4);
         let wallet = await MultiSigWallet.new(additionalOwners, 2);
         crowdsale = await Crowdsale.new(
@@ -208,7 +324,8 @@ contract('Crowdsale.sol', function (accounts) {
         );
 
         //when
-        while(Math.round(new Date().getTime()/1000) - 3 <= (await crowdsale.endsAt()).toNumber()){}
+        while (Math.round(new Date().getTime() / 1000) - 3 <= (await crowdsale.endsAt()).toNumber()) {
+        }
         await crowdsale.finalizeCrowdsale();
         let token = DebitumToken.at(await crowdsale.token());
         let walletTokenAmount = (await token.balanceOf(wallet.address)).toNumber();
@@ -216,7 +333,7 @@ contract('Crowdsale.sol', function (accounts) {
 
         //then
         assert.isTrue(walletTokenAmount > 0, "Wallet has tokens");
-        assert.equal((await token.totalSupply()).toNumber() - walletTokenAmount , investorsTokenAmount, "Not sold tokens are transferred to wallet")
+        assert.equal((await token.totalSupply()).toNumber() - walletTokenAmount, investorsTokenAmount, "Not sold tokens are transferred to wallet")
     });
 
 });

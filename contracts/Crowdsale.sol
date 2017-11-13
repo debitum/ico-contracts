@@ -66,7 +66,8 @@ contract Crowdsale is Ownable {
     uint256 public SECOND_STEP_UPPER_LIMIT = 50000 * 1 ether;
     uint256 public SECOND_STEP_RATE = 3300;
 
-    uint256 public CROWDFUND_HARD_CAP = 200000 * 1 ether;
+    uint256 public HARD_CAP = 200000 * 1 ether;
+    uint256 private CROWDFUND_HARD_CAP = HARD_CAP;
     uint256 public THIRD_STEP_RATE = 2888;
 
     // Max amount of ether which could be invested for ether account which not proceeded verification
@@ -114,13 +115,20 @@ contract Crowdsale is Ownable {
 
     modifier investmentCanProceed() {
         assert(now >= startsAt && now <= endsAt);
-        assert(msg.value > 0);
+        assert(msg.value >= 0.1 * 1 ether);
         assert(weiRaised < CROWDFUND_HARD_CAP);
         _;
     }
 
     modifier isCrowdsaleFinished() {
         assert(now > endsAt || weiRaised >= CROWDFUND_HARD_CAP);
+        _;
+    }
+
+    modifier canChangeHardCap(uint256 _newHardCap, address signer) {
+        assert(isCrowdsaleParticipantSigner[signer]);
+        assert(_newHardCap > SECOND_STEP_UPPER_LIMIT && _newHardCap <= HARD_CAP);
+        assert(_newHardCap > weiRaised);
         _;
     }
 
@@ -186,6 +194,7 @@ contract Crowdsale is Ownable {
             SECOND_STEP_UPPER_LIMIT = _secondStepUpperLimit;
             SECOND_STEP_RATE = _secondStepRate;
 
+            HARD_CAP = _crowdfundHardCap;
             CROWDFUND_HARD_CAP = _crowdfundHardCap;
             THIRD_STEP_RATE = _thirdStepRate;
         }
@@ -237,6 +246,13 @@ contract Crowdsale is Ownable {
         tokenAmountOf[msg.sender] = tokenAmountOf[msg.sender].safeAdd(tokens);
 
         TokenPurchased(msg.sender, weiAmount, tokens);
+    }
+
+    function changeHardCap(uint256 _newHardCap)
+        external
+        canChangeHardCap(_newHardCap, msg.sender)
+    {
+        CROWDFUND_HARD_CAP = _newHardCap;
     }
 
     /**
