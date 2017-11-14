@@ -114,6 +114,7 @@ contract Crowdsale is Ownable {
 
 
     modifier investmentCanProceed() {
+        assert(!isContract(msg.sender));
         assert(now >= startsAt && now <= endsAt);
         assert(msg.value >= 0.1 * 1 ether);
         assert(weiRaised < CROWDFUND_HARD_CAP);
@@ -372,6 +373,12 @@ contract Crowdsale is Ownable {
         minimalCapReached
     {
         wallet.transfer(this.balance);
+    }
+
+    function isContract(address _addr) private returns (bool is_contract) {
+        uint length;
+        assembly { length := extcodesize(_addr) }
+        return length > 0;
     }
 
 

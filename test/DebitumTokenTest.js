@@ -145,11 +145,16 @@ contract('DebitumToken.sol', function (accounts) {
     });
 
     it("Tokens may not by sent to another contract if it does not implement ERC23Receiver standard", async function() {
+        let transferError;
         let tokenReceiver = await ERC23Receiver.new(false);
         var token = await DebitumToken.new(web3.eth.accounts[0]);
-        await token.transfer(tokenReceiver.address, web3.toWei(1, 'ether'));
+        try {
+            await token.transfer(tokenReceiver.address, web3.toWei(1, 'ether'));
+        } catch (error) {
+            transferError = error;
+        }
 
-        assert.equal((await token.balanceOf(tokenReceiver.address)).toNumber(), web3.toWei(1, 'ether'), "Contract has to receive tokens");
+        assert.equal((await token.balanceOf(tokenReceiver.address)).toNumber(), web3.toWei(0, 'ether'), "Contract has to receive tokens");
     });
 
     it("Tokens may by sent to another contract if it implement ERC23Receiver standard", async function() {

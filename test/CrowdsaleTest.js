@@ -1,6 +1,7 @@
 let Crowdsale = artifacts.require("./Crowdsale.sol");
 let DebitumToken = artifacts.require("./DebitumToken.sol");
 let MultiSigWallet = artifacts.require("./MultiSigWallet.sol");
+let ERC23Receiver = artifacts.require("./helpers/ERC23ReceiverMock.sol");
 
 contract('Crowdsale.sol', function (accounts) {
     let crowdsale;
@@ -334,6 +335,31 @@ contract('Crowdsale.sol', function (accounts) {
         //then
         assert.isTrue(walletTokenAmount > 0, "Wallet has tokens");
         assert.equal((await token.totalSupply()).toNumber() - walletTokenAmount, investorsTokenAmount, "Not sold tokens are transferred to wallet")
+    });
+
+    it("Investments from contracts won't be accepted", async function () {
+        //given
+        let transferError;
+        let investor = await ERC23Receiver.new();
+        await investor.sendTransaction(
+            {
+                from: web3.eth.accounts[7],
+                to: contract.address,
+                value: web3.toWei(2, 'ether'),
+            }
+        );
+
+        //when
+        // to make sure that contract transfers ether
+        await investor.transferEth(web3.eth.accounts[7], web3.toWei(0.1, 'ether'));
+        try {
+            await investor.transferEth(crowdsale.address, web3.toWei(1, 'ether'));
+        }catch (error) {
+            transferError = error;
+        }
+
+        //then
+        assert.notEqual(transferError, undefined, 'Error must be thrown, when tries to invest from smart contract');
     });
 
 });

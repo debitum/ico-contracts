@@ -28,14 +28,16 @@ contract DebitumToken is iERC23Token, StandardToken {
     function transfer(address _to, uint _value, bytes _data) returns (bool success) {
         //filtering if the target is a contract with bytecode inside it
         assert(super.transfer(_to, _value)); // do a normal token transfer
-        if (isContract(_to)) return contractFallback(msg.sender, _to, _value, _data);
+        if (isContract(_to)) {
+            assert(contractFallback(msg.sender, _to, _value, _data));
+        }
         return true;
     }
 
     function transferFrom(address _from, address _to, uint _value, bytes _data) returns (bool success) {
         assert(super.transferFrom(_from, _to, _value)); // do a normal token transfer
         if (isContract(_to)) {
-            return contractFallback(_from, _to, _value, _data);
+            assert(contractFallback(_from, _to, _value, _data));
         }
         return true;
     }
@@ -49,7 +51,7 @@ contract DebitumToken is iERC23Token, StandardToken {
     }
 
     //function that is called when transaction target is a contract
-    function contractFallback(address _origin, address _to, uint _value, bytes _data) private returns (bool success) {
+    function contractFallback(address _origin, address _to, uint _value, bytes _data) private returns (bool) {
         ContractTransfer(_origin, _to, _value, _data);
         ERC23Receiver reciever = ERC23Receiver(_to);
         return reciever.tokenFallback(msg.sender, _origin, _value, _data);
