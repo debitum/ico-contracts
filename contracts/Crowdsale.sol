@@ -73,6 +73,8 @@ contract Crowdsale is Ownable {
     // Max amount of ether which could be invested for ether account which not proceeded verification
     uint256 public NOT_VERIFIED_WEI_LIMIT = 30 * 1 ether;
 
+    uint private soldTokenAmount;
+
     /**
       * event for participant verification logging
       * @param participant who paid for the tokens
@@ -111,7 +113,6 @@ contract Crowdsale is Ownable {
       * @param createdOn time of log
       */
     event CrowdsaleFinalized(address finalizer, uint256 createdOn);
-
 
     modifier investmentCanProceed() {
         assert(!isContract(msg.sender));
@@ -222,9 +223,6 @@ contract Crowdsale is Ownable {
         public
         canAddCrowdsaleParticipants(msg.sender)
     {
-        if (!isRegisteredEthereumAddress[_participant]) {
-            crowdsaleParticipants.push(_participant);
-        }
         isRegisteredEthereumAddress[_participant] = true;
         ParticipantVerified(_participant, _verificationCode, now);
     }
@@ -236,6 +234,9 @@ contract Crowdsale is Ownable {
         verifiedForCrowdsale(msg.sender, msg.value)
         payable
     {
+        if(investedAmountOf[msg.sender] == 0){
+            crowdsaleParticipants.push(msg.sender);
+        }
         uint256 weiAmount = investmentWeiLimit(msg.value);
 
         // calculate token amount to be transferred
@@ -325,6 +326,62 @@ contract Crowdsale is Ownable {
     }
 
     /**
+      * Initiate partial crowdsale finalization. Used to devide
+      * token distribution by blocks.
+      * After initiation tokens will be send to investors
+      * if minimal amount of wei is invested
+      * otherwise all invested wei are returned to investors.
+      *@param _participantIndx crowdsale participant index till whic finalize crowdsale
+      */
+    function finalizePartialCrowdsale(uint _participantIndx)
+        public
+        isCrowdsaleFinished
+        notFinalized
+    {
+        assert(_participantIndx <= crowdsaleParticipants.length);
+        if(_participantIndx == crowdsaleParticipants.length) {
+            finalized = true;
+        }
+
+        uint256 amount;
+        if(FIRST_STEP_UPPER_LIMIT <= weiRaised){
+
+            for (uint i = 0; i < _participantIndx; i++) {
+                if (tokenAmountOf[crowdsaleParticipants[i]] > 0){
+                    amount = tokenAmountOf[crowdsaleParticipants[i]];
+                    tokenAmountOf[crowdsaleParticipants[i]] = 0;
+                    token.transfer(crowdsaleParticipants[i], amount);
+                    TokenSentToInvestor(crowdsaleParticipants[i], amount, now);
+                    soldTokenAmount = soldTokenAmount.safeAdd(amount);
+                }
+            }
+            if(finalized){
+                uint reserve = token.totalSupply().safeSub(soldTokenAmount);
+                token.transfer(address(wallet), reserve);
+            }
+        } else {
+            for (uint j = 0; j < _participantIndx; j++) {
+                if (investedAmountOf[crowdsaleParticipants[j]] > 0){
+                    amount = investedAmountOf[crowdsaleParticipants[j]];
+                    investedAmountOf[crowdsaleParticipants[j]] = 0;
+                    crowdsaleParticipants[j].transfer(amount);
+                    InvestmentReturned(crowdsaleParticipants[j], amount, now);
+                }
+            }
+            if(finalized){
+                token.transfer(address(wallet), token.totalSupply());
+            }
+        }
+
+        deleteParticipants(_participantIndx);
+        if(finalized){
+            CrowdsaleFinalized(msg.sender, now);
+        }
+    }
+
+
+
+    /**
       * Initiate crwodsale finalization.
       * After initiation tokens will be send to investors
       * if minimal amount of wei is invested
@@ -335,36 +392,20 @@ contract Crowdsale is Ownable {
         isCrowdsaleFinished
         notFinalized
     {
-        finalized = true;
-        uint256 amount;
-        if(FIRST_STEP_UPPER_LIMIT <= weiRaised){
-            uint soldTokenAmount;
-            for (uint i = 0; i < crowdsaleParticipants.length; i++) {
-                if (tokenAmountOf[crowdsaleParticipants[i]] > 0){
-                    amount = tokenAmountOf[crowdsaleParticipants[i]];
-                    tokenAmountOf[crowdsaleParticipants[i]] = 0;
-                    token.transfer(crowdsaleParticipants[i], amount);
-                    TokenSentToInvestor(crowdsaleParticipants[i], amount, now);
-                    soldTokenAmount = soldTokenAmount.safeAdd(amount);
-                }
-            }
-            //uint reserve = token.totalSupply().safeDiv(HUNDRED_PERCENT).safeMul(RESERVE_PERCENT_OF_TOTAL);
-            uint reserve = token.totalSupply().safeSub(soldTokenAmount);
-            token.transfer(address(wallet), reserve);
-        } else {
-            for (uint j = 0; j < crowdsaleParticipants.length; j++) {
-                if (investedAmountOf[crowdsaleParticipants[j]] > 0){
-                    amount = investedAmountOf[crowdsaleParticipants[j]];
-                    investedAmountOf[crowdsaleParticipants[j]] = 0;
-                    crowdsaleParticipants[j].transfer(amount);
-                    InvestmentReturned(crowdsaleParticipants[j], amount, now);
-                }
-            }
-            token.transfer(address(wallet), token.totalSupply());
+        finalizePartialCrowdsale(crowdsaleParticipants.length);
+    }
+
+    function deleteParticipants(uint participantIndx)  private {
+        address[] memory newParticipants = new address[](crowdsaleParticipants.length - participantIndx);
+        for (uint  j = 0; j < (crowdsaleParticipants.length - participantIndx); j++) {
+            crowdsaleParticipants[j] = crowdsaleParticipants[participantIndx + j];
         }
 
-        CrowdsaleFinalized(msg.sender, now);
+        for (uint  i = (crowdsaleParticipants.length - participantIndx); i < (crowdsaleParticipants.length ); i++) {
+            delete crowdsaleParticipants[i];
+        }
 
+        crowdsaleParticipants.length = crowdsaleParticipants.length - participantIndx;
     }
 
     // @notice Send ether to the fund collection wallet

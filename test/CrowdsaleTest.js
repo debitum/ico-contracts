@@ -63,10 +63,6 @@ contract('Crowdsale.sol', function (accounts) {
             2888
         );
 
-        await crowdsale.signCrowdsaleParticipant(web3.eth.accounts[0], "some-dummy-token");
-        await crowdsale.signCrowdsaleParticipant(web3.eth.accounts[1], "some-dummy-token");
-        await crowdsale.signCrowdsaleParticipant(web3.eth.accounts[2], "some-dummy-token");
-
         await crowdsale.sendTransaction(
             {
                 from: web3.eth.accounts[0],
@@ -113,9 +109,6 @@ contract('Crowdsale.sol', function (accounts) {
             web3.toWei(15, 'ether'),
             2888
         );
-
-        await crowdsale.signCrowdsaleParticipant(web3.eth.accounts[2], "some-dummy-token");
-
 
         await crowdsale.sendTransaction(
             {
@@ -210,8 +203,6 @@ contract('Crowdsale.sol', function (accounts) {
         }
 
         await crowdsale.changeHardCap(web3.toWei(4.1, 'ether'));
-        await crowdsale.signCrowdsaleParticipant(web3.eth.accounts[2], "some-dummy-token");
-
 
         await crowdsale.sendTransaction(
             {
@@ -314,7 +305,6 @@ contract('Crowdsale.sol', function (accounts) {
             2888
         );
 
-        await crowdsale.signCrowdsaleParticipant(web3.eth.accounts[2], "some-dummy-token");
 
         await crowdsale.sendTransaction(
             {
@@ -361,5 +351,73 @@ contract('Crowdsale.sol', function (accounts) {
         //then
         assert.notEqual(transferError, undefined, 'Error must be thrown, when tries to invest from smart contract');
     });
+
+    it("When hard cap is reached then crowdsale finalization can by made partially by blocks", async function () {
+        let now = Math.round(new Date().getTime() / 1000);
+        crowdsale = await Crowdsale.new(
+            now,
+            now + 3600,
+            accounts[8],
+            web3.toWei(0.9, 'ether'),
+            3750,
+            web3.toWei(4, 'ether'),
+            3300,
+            web3.toWei(9, 'ether'),
+            2888
+        );
+
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[0],
+                to: contract.address,
+                value: web3.toWei(1.3, 'ether'),
+            }
+        );
+
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[1],
+                to: contract.address,
+                value: web3.toWei(2, 'ether'),
+            }
+        );
+
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[2],
+                to: contract.address,
+                value: web3.toWei(2, 'ether'),
+            }
+        );
+
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[5],
+                to: contract.address,
+                value: web3.toWei(2, 'ether'),
+            }
+        );
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[6],
+                to: contract.address,
+                value: web3.toWei(2, 'ether'),
+            }
+        );
+        let token = DebitumToken.at(await crowdsale.token());
+
+        await crowdsale.finalizePartialCrowdsale(2);
+        await crowdsale.finalizePartialCrowdsale(2);
+        await crowdsale.finalizePartialCrowdsale(1);
+        assert.equal((await token.balanceOf(web3.eth.accounts[0])).toNumber(), web3.toWei(3375 + 1320, 'ether'), "First step investor gets 7500 tokens")
+        assert.equal((await token.balanceOf(web3.eth.accounts[1])).toNumber(), web3.toWei(3300 * 2, 'ether'), "Second step investor gets 6600 tokens")
+        assert.equal((await token.balanceOf(web3.eth.accounts[2])).toNumber(), web3.toWei(6064.4, 'ether'), "Third step investor gets 5776 tokens")
+        assert.equal((await token.balanceOf(web3.eth.accounts[5])).toNumber(), web3.toWei(5776, 'ether'), "Third step investor gets 5776 tokens")
+        assert.equal((await token.balanceOf(web3.eth.accounts[6])).toNumber(), web3.toWei(4909.6, 'ether'), "Third step investor gets 5776 tokens")
+
+    });
+
+
+
 
 });
