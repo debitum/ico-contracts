@@ -165,4 +165,25 @@ contract('DebitumToken.sol', function (accounts) {
         assert.equal((await token.balanceOf(tokenReceiver.address)).toNumber(), web3.toWei(1, 'ether'), "Contract has to receive tokens");
     });
 
+    describe('Validating allowance updates to spender', function() {
+        let preApproved;
+        let token;
+
+
+        it('Allowance starts with zero', async function() {
+            token = await DebitumToken.new(web3.eth.accounts[0]);
+            preApproved = await token.allowance(accounts[0], accounts[1]);
+            assert.equal(preApproved, 0);
+        })
+
+        it('Final allowance calculated correctly  after increases and decreases', async function() {
+            await token.increaseApproval(accounts[1], 50);
+            let postIncrease = await token.allowance(accounts[0], accounts[1]);
+            assert.equal(preApproved.plus(50).toNumber(), postIncrease.toNumber());
+            await token.decreaseApproval(accounts[1], 10);
+            let postDecrease = await token.allowance(accounts[0], accounts[1]);
+            assert.equal(postIncrease.minus(10).toNumber(), postDecrease.toNumber());
+        })
+    });
+
 });
