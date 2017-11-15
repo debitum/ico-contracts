@@ -88,8 +88,9 @@ contract Crowdsale is Ownable {
       * @param purchaser who paid for the tokens
       * @param value weis paid for purchase
       * @param amount amount of tokens purchased
+      * @param createdOn time of log
       */
-    event TokenPurchased(address purchaser, uint256 value, uint256 amount);
+    event TokenPurchased(address purchaser, uint256 value, uint256 amount, uint256 createdOn);
 
     /**
       * event for investment return (if FIRST_STEP_UPPER_LIMIT is not reached) logging
@@ -247,7 +248,7 @@ contract Crowdsale is Ownable {
         investedAmountOf[msg.sender] = investedAmountOf[msg.sender].safeAdd(weiRaised);
         tokenAmountOf[msg.sender] = tokenAmountOf[msg.sender].safeAdd(tokens);
 
-        TokenPurchased(msg.sender, weiAmount, tokens);
+        TokenPurchased(msg.sender, weiAmount, tokens, now);
     }
 
     function changeHardCap(uint256 _newHardCap)
