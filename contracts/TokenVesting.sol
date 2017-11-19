@@ -1,4 +1,4 @@
-pragma solidity ^0.4.11;
+pragma solidity ^0.4.15;
 
 import './zeppelin/StandardToken.sol';
 import './zeppelin/SafeERC20.sol';

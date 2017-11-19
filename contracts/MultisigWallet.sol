@@ -1,4 +1,4 @@
-pragma solidity ^0.4.11;
+pragma solidity ^0.4.15;
 
 import './interface/iEC23Receiver.sol';
 import './zeppelin/StandardToken.sol';
@@ -13,6 +13,7 @@ import './zeppelin/StandardToken.sol';
  * - ether and token transactions management
  */
 contract MultiSigWallet is ERC23Receiver {
+
 
     // Max size of owners that can be added to wallet
     uint constant public MAX_OWNER_COUNT = 5;
@@ -116,71 +117,71 @@ contract MultiSigWallet is ERC23Receiver {
 
     modifier notConfirmedOwnerAdd(address _owner) {
         for(uint i = 0; i < ownersConfirmedOwnerAdd[_owner].length; i++){
-            assert(ownersConfirmedOwnerAdd[_owner][i] != msg.sender);
+            require(ownersConfirmedOwnerAdd[_owner][i] != msg.sender);
         }
         _;
     }
 
     modifier notConfirmedOwnerRemove(address _owner) {
         for(uint i = 0; i < ownersConfirmedOwnerRemove[_owner].length; i++){
-            assert(ownersConfirmedOwnerRemove[_owner][i] != msg.sender);
+            require(ownersConfirmedOwnerRemove[_owner][i] != msg.sender);
         }
         _;
     }
 
     modifier ownerDoesNotExist(address owner) {
-        assert(!isOwner[owner]);
+        require(!isOwner[owner]);
         _;
     }
 
     modifier ownerExists(address owner) {
-        assert(isOwner[owner]);
+        require(isOwner[owner]);
         _;
     }
 
     modifier transactionExists(uint transactionId) {
-        assert (transactions[transactionId].destination != 0);
+        require (transactions[transactionId].destination != 0);
         _;
     }
 
     modifier confirmed(uint transactionId, address owner) {
-        assert(confirmations[transactionId][owner]);
+        require(confirmations[transactionId][owner]);
         _;
     }
 
     modifier notConfirmed(uint transactionId, address owner) {
-        assert(!confirmations[transactionId][owner]);
+        require(!confirmations[transactionId][owner]);
         _;
     }
 
     modifier notExecuted(uint transactionId) {
-        assert(!transactions[transactionId].executed);
+        require(!transactions[transactionId].executed);
         _;
     }
 
     modifier notNull(address _address) {
-        assert (_address != 0x0);
+        require (_address != 0x0);
         _;
     }
 
     modifier validRequirement(uint _ownersCount, uint _required) {
-        assert(_ownersCount <= MAX_OWNER_COUNT);
-        assert(_required <= _ownersCount);
-        assert(_required > 0);
-        assert(_ownersCount > 0);
+        require(_ownersCount <= MAX_OWNER_COUNT);
+        require(_required <= _ownersCount);
+        require(_required > 0);
+        require(_ownersCount > 0);
         _;
     }
 
     modifier validTransaction(address destination, uint value) {
-        assert(destination != 0x0);
-        assert(value > 0);
+        require(destination != 0x0);
+        require(value > 0);
         _;
     }
 
     modifier validTokenTransaction(address token, address destination, uint value) {
-        assert(token != 0x0);
-        assert(destination != 0x0);
-        assert(value > 0);
+        require(token != 0x0);
+        require(destination != 0x0);
+        require(value > 0);
         _;
     }
 
@@ -198,10 +199,10 @@ contract MultiSigWallet is ERC23Receiver {
         public
         validRequirement(_owners.length + 1, _required)
     {
-        assert(_owners.length == 0 || _owners.length <= MAX_OWNER_COUNT);
+        require(_owners.length == 0 || _owners.length <= MAX_OWNER_COUNT);
 
         for (uint i = 0; i < _owners.length; i++) {
-            assert(!(isOwner[_owners[i]] || _owners[i] == 0 || _owners[i] == msg.sender));
+            require(!(isOwner[_owners[i]] || _owners[i] == 0 || _owners[i] == msg.sender));
             isOwner[_owners[i]] = true;
         }
 

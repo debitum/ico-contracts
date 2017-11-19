@@ -95,40 +95,6 @@ contract('Crowdsale.sol', function (accounts) {
 
     });
 
-    it("If minimal cap is not reached till crowdsale end then all investments returned to investors", async function () {
-        //given
-        let now = Math.round(new Date().getTime() / 1000);
-        crowdsale = await Crowdsale.new(
-            now,
-            now + 1,
-            accounts[0],
-            web3.toWei(9, 'ether'),
-            3750,
-            web3.toWei(10, 'ether'),
-            3300,
-            web3.toWei(15, 'ether'),
-            2888
-        );
-
-        await crowdsale.sendTransaction(
-            {
-                from: web3.eth.accounts[2],
-                to: contract.address,
-                value: web3.toWei(2, 'ether'),
-            }
-        );
-        let initialBalance = web3.eth.getBalance(web3.eth.accounts[2]);
-
-        //when
-        while (Math.round(new Date().getTime() / 1000) - 3 <= (await crowdsale.endsAt()).toNumber()) {
-        }
-        await crowdsale.finalizeCrowdsale();
-
-        //then
-        assert.equal(initialBalance.toNumber(), web3.eth.getBalance(web3.eth.accounts[2]).toNumber() - web3.toWei(2, 'ether'), "Investment returned to investors")
-
-
-    });
 
     it("Must not let invest more then 30eth for not verified investors", async function () {
         //given
@@ -324,7 +290,7 @@ contract('Crowdsale.sol', function (accounts) {
 
         //then
         assert.isTrue(walletTokenAmount > 0, "Wallet has tokens");
-        assert.equal((await token.totalSupply()).toNumber() - walletTokenAmount, investorsTokenAmount, "Not sold tokens are transferred to wallet")
+        assert.equal( investorsTokenAmount + walletTokenAmount, (await token.totalSupply()).toNumber(), "Not sold tokens are transferred to wallet")
     });
 
     it("Investments from contracts won't be accepted", async function () {
@@ -352,35 +318,24 @@ contract('Crowdsale.sol', function (accounts) {
         assert.notEqual(transferError, undefined, 'Error must be thrown, when tries to invest from smart contract');
     });
 
-    it("When hard cap is reached then crowdsale finalization can by made partially by blocks", async function () {
+    it("TIll crowdsale ends, all tokens are freezed and can be transfered only by crowdsale contract", async function () {
+        //given
+        let transferError;
         let now = Math.round(new Date().getTime() / 1000);
+        let additionalOwners = accounts.slice(1, 4);
+        let wallet = await MultiSigWallet.new(additionalOwners, 2);
         crowdsale = await Crowdsale.new(
             now,
-            now + 3600,
-            accounts[8],
-            web3.toWei(0.9, 'ether'),
-            3750,
-            web3.toWei(4, 'ether'),
-            3300,
+            now + 1,
+            wallet.address,
             web3.toWei(9, 'ether'),
+            3750,
+            web3.toWei(10, 'ether'),
+            3300,
+            web3.toWei(15, 'ether'),
             2888
         );
-
-        await crowdsale.sendTransaction(
-            {
-                from: web3.eth.accounts[0],
-                to: contract.address,
-                value: web3.toWei(1.3, 'ether'),
-            }
-        );
-
-        await crowdsale.sendTransaction(
-            {
-                from: web3.eth.accounts[1],
-                to: contract.address,
-                value: web3.toWei(2, 'ether'),
-            }
-        );
+        let token = DebitumToken.at(await crowdsale.token());
 
         await crowdsale.sendTransaction(
             {
@@ -389,35 +344,23 @@ contract('Crowdsale.sol', function (accounts) {
                 value: web3.toWei(2, 'ether'),
             }
         );
+        try {
+            await token.transfer(web3.eth.accounts[3], web3.toWei(1, 'ether'), {from: web3.eth.accounts[2]});
+        }catch (error) {
+            transferError = error;
+        }
 
-        await crowdsale.sendTransaction(
-            {
-                from: web3.eth.accounts[5],
-                to: contract.address,
-                value: web3.toWei(2, 'ether'),
-            }
-        );
-        await crowdsale.sendTransaction(
-            {
-                from: web3.eth.accounts[6],
-                to: contract.address,
-                value: web3.toWei(2, 'ether'),
-            }
-        );
-        let token = DebitumToken.at(await crowdsale.token());
+        //when
+        while (Math.round(new Date().getTime() / 1000) - 3 <= (await crowdsale.endsAt()).toNumber()) {
+        }
+        await crowdsale.finalizeCrowdsale();
 
-        await crowdsale.finalizePartialCrowdsale(2);
-        await crowdsale.finalizePartialCrowdsale(2);
-        await crowdsale.finalizePartialCrowdsale(1);
-        assert.equal((await token.balanceOf(web3.eth.accounts[0])).toNumber(), web3.toWei(3375 + 1320, 'ether'), "First step investor gets 7500 tokens")
-        assert.equal((await token.balanceOf(web3.eth.accounts[1])).toNumber(), web3.toWei(3300 * 2, 'ether'), "Second step investor gets 6600 tokens")
-        assert.equal((await token.balanceOf(web3.eth.accounts[2])).toNumber(), web3.toWei(6064.4, 'ether'), "Third step investor gets 5776 tokens")
-        assert.equal((await token.balanceOf(web3.eth.accounts[5])).toNumber(), web3.toWei(5776, 'ether'), "Third step investor gets 5776 tokens")
-        assert.equal((await token.balanceOf(web3.eth.accounts[6])).toNumber(), web3.toWei(4909.6, 'ether'), "Third step investor gets 5776 tokens")
+        await token.transfer(web3.eth.accounts[3], web3.toWei(1, 'ether'), {from: web3.eth.accounts[2], gass: 3000000});
 
+        //then
+        assert.notEqual(transferError, undefined, 'Error must be thrown, when tries to transfer token before end of crowdsale');
+        assert.equal((await token.balanceOf(web3.eth.accounts[3])).toNumber(), web3.toWei(1, 'ether'), "Account 3 has to receive tokens");
     });
-
-
 
 
 });

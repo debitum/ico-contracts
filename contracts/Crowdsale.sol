@@ -1,4 +1,4 @@
-pragma solidity ^0.4.11;
+pragma solidity ^0.4.15;
 
 import "./zeppelin/SafeMath.sol";
 import "./zeppelin/Ownable.sol";
@@ -18,9 +18,6 @@ import "./DebitumToken.sol";
 contract Crowdsale is Ownable {
     using SafeMath for uint256;
 
-    // Max size of owners that can be added to administration board
-    uint constant public MAX_OWNER_COUNT = 5;
-
     // Debitum token we are selling
     DebitumToken public token;
 
@@ -38,9 +35,6 @@ contract Crowdsale is Ownable {
 
     // Dictionary which shows has account (investors) addresses registered for crowdsale
     mapping (address => bool) public isRegisteredEthereumAddress;
-
-    // Registered crowdsale participants Ethereum aacounts
-    address[] public crowdsaleParticipants;
 
     // Can account register verified crowdsale participants
     mapping (address => bool) public isCrowdsaleParticipantSigner;
@@ -81,7 +75,7 @@ contract Crowdsale is Ownable {
       * @param verificationCode weis paid for purchase
       * @param createdOn time of log
       */
-    event ParticipantVerified(address participant, string verificationCode, uint256 createdOn);
+    event ParticipantVerified(address indexed participant, string verificationCode, uint256 createdOn);
 
     /**
       * event for token purchase logging
@@ -90,7 +84,7 @@ contract Crowdsale is Ownable {
       * @param amount amount of tokens purchased
       * @param createdOn time of log
       */
-    event TokenPurchased(address purchaser, uint256 value, uint256 amount, uint256 createdOn);
+    event TokenPurchased(address indexed purchaser, uint256 value, uint256 amount, uint256 createdOn);
 
     /**
       * event for investment return (if FIRST_STEP_UPPER_LIMIT is not reached) logging
@@ -98,7 +92,7 @@ contract Crowdsale is Ownable {
       * @param amount weis returned
       * @param createdOn time of log
       */
-    event InvestmentReturned(address investor, uint256 amount, uint256 createdOn);
+    event InvestmentReturned(address indexed investor, uint256 amount, uint256 createdOn);
 
     /**
       * event for tokens assignment to investor logging
@@ -106,53 +100,53 @@ contract Crowdsale is Ownable {
       * @param amount of tokens to be assigned
       * @param createdOn time of log
       */
-    event TokenSentToInvestor(address investor, uint256 amount, uint256 createdOn);
+    event TokenSentToInvestor(address indexed investor, uint256 amount, uint256 createdOn);
 
     /**
       * event for crowdsale finalization logging
       * @param finalizer account who iniciated finalization
       * @param createdOn time of log
       */
-    event CrowdsaleFinalized(address finalizer, uint256 createdOn);
+    event CrowdsaleFinalized(address indexed finalizer, uint256 createdOn);
 
     modifier investmentCanProceed() {
-        assert(!isContract(msg.sender));
-        assert(now >= startsAt && now <= endsAt);
-        assert(msg.value >= 0.1 * 1 ether);
-        assert(weiRaised < CROWDFUND_HARD_CAP);
+        require(!isContract(msg.sender));
+        require(now >= startsAt && now <= endsAt);
+        require(msg.value >= 0.1 * 1 ether);
+        require(weiRaised < CROWDFUND_HARD_CAP);
         _;
     }
 
     modifier isCrowdsaleFinished() {
-        assert(now > endsAt || weiRaised >= CROWDFUND_HARD_CAP);
+        require(now > endsAt || weiRaised >= CROWDFUND_HARD_CAP);
         _;
     }
 
     modifier canChangeHardCap(uint256 _newHardCap, address signer) {
-        assert(isCrowdsaleParticipantSigner[signer]);
-        assert(_newHardCap > SECOND_STEP_UPPER_LIMIT && _newHardCap <= HARD_CAP);
-        assert(_newHardCap > weiRaised);
+        require(isCrowdsaleParticipantSigner[signer]);
+        require(_newHardCap > SECOND_STEP_UPPER_LIMIT && _newHardCap <= HARD_CAP);
+        require(_newHardCap > weiRaised);
         _;
     }
 
     modifier canAddCrowdsaleParticipants(address signer) {
-        assert(isCrowdsaleParticipantSigner[signer]);
+        require(isCrowdsaleParticipantSigner[signer]);
         _;
     }
 
     modifier verifiedForCrowdsale(address participant, uint256 weiAmount) {
-        assert(isRegisteredEthereumAddress[participant] || tokenAmountOf[participant].safeAdd(weiAmount) <= NOT_VERIFIED_WEI_LIMIT);
+        require(isRegisteredEthereumAddress[participant] || tokenAmountOf[participant].safeAdd(weiAmount) <= NOT_VERIFIED_WEI_LIMIT);
         _;
     }
 
 
     modifier minimalCapReached() {
-        assert(weiRaised >= FIRST_STEP_UPPER_LIMIT);
+        require(weiRaised >= FIRST_STEP_UPPER_LIMIT);
         _;
     }
 
     modifier notFinalized() {
-        assert(!finalized);
+        require(!finalized);
         _;
     }
 
@@ -179,10 +173,7 @@ contract Crowdsale is Ownable {
         uint256 _thirdStepRate
     ) {
         require(_start > 0);
-        require(_end > 0);
         require(_start < _end);
-
-        owner = msg.sender;
 
         if ( _firstStepUpperLimit > 0
             && _firstStepRate > 0
@@ -235,19 +226,15 @@ contract Crowdsale is Ownable {
         verifiedForCrowdsale(msg.sender, msg.value)
         payable
     {
-        if(investedAmountOf[msg.sender] == 0){
-            crowdsaleParticipants.push(msg.sender);
-        }
+
         uint256 weiAmount = investmentWeiLimit(msg.value);
 
         // calculate token amount to be transferred
         uint256 tokens = calculateTokenAmountFor(weiRaised, weiAmount);
-
         weiRaised = weiRaised.safeAdd(weiAmount);
-
         investedAmountOf[msg.sender] = investedAmountOf[msg.sender].safeAdd(weiRaised);
         tokenAmountOf[msg.sender] = tokenAmountOf[msg.sender].safeAdd(tokens);
-
+        token.transfer(msg.sender, tokens);
         TokenPurchased(msg.sender, weiAmount, tokens, now);
     }
 
@@ -327,62 +314,6 @@ contract Crowdsale is Ownable {
     }
 
     /**
-      * Initiate partial crowdsale finalization. Used to devide
-      * token distribution by blocks.
-      * After initiation tokens will be send to investors
-      * if minimal amount of wei is invested
-      * otherwise all invested wei are returned to investors.
-      *@param _participantIndx crowdsale participant index till whic finalize crowdsale
-      */
-    function finalizePartialCrowdsale(uint _participantIndx)
-        public
-        isCrowdsaleFinished
-        notFinalized
-    {
-        assert(_participantIndx <= crowdsaleParticipants.length);
-        if(_participantIndx == crowdsaleParticipants.length) {
-            finalized = true;
-        }
-
-        uint256 amount;
-        if(FIRST_STEP_UPPER_LIMIT <= weiRaised){
-
-            for (uint i = 0; i < _participantIndx; i++) {
-                if (tokenAmountOf[crowdsaleParticipants[i]] > 0){
-                    amount = tokenAmountOf[crowdsaleParticipants[i]];
-                    tokenAmountOf[crowdsaleParticipants[i]] = 0;
-                    token.transfer(crowdsaleParticipants[i], amount);
-                    TokenSentToInvestor(crowdsaleParticipants[i], amount, now);
-                    soldTokenAmount = soldTokenAmount.safeAdd(amount);
-                }
-            }
-            if(finalized){
-                uint reserve = token.totalSupply().safeSub(soldTokenAmount);
-                token.transfer(address(wallet), reserve);
-            }
-        } else {
-            for (uint j = 0; j < _participantIndx; j++) {
-                if (investedAmountOf[crowdsaleParticipants[j]] > 0){
-                    amount = investedAmountOf[crowdsaleParticipants[j]];
-                    investedAmountOf[crowdsaleParticipants[j]] = 0;
-                    crowdsaleParticipants[j].transfer(amount);
-                    InvestmentReturned(crowdsaleParticipants[j], amount, now);
-                }
-            }
-            if(finalized){
-                token.transfer(address(wallet), token.totalSupply());
-            }
-        }
-
-        deleteParticipants(_participantIndx);
-        if(finalized){
-            CrowdsaleFinalized(msg.sender, now);
-        }
-    }
-
-
-
-    /**
       * Initiate crwodsale finalization.
       * After initiation tokens will be send to investors
       * if minimal amount of wei is invested
@@ -393,26 +324,17 @@ contract Crowdsale is Ownable {
         isCrowdsaleFinished
         notFinalized
     {
-        finalizePartialCrowdsale(crowdsaleParticipants.length);
+        finalized = true;
+        token.unfreeze();
+        token.transfer(address(wallet), token.balanceOf(address(this)));
+        forwardFunds();
+        CrowdsaleFinalized(msg.sender, now);
     }
 
-    function deleteParticipants(uint participantIndx)  private {
-        address[] memory newParticipants = new address[](crowdsaleParticipants.length - participantIndx);
-        for (uint  j = 0; j < (crowdsaleParticipants.length - participantIndx); j++) {
-            crowdsaleParticipants[j] = crowdsaleParticipants[participantIndx + j];
-        }
-
-        for (uint  i = (crowdsaleParticipants.length - participantIndx); i < (crowdsaleParticipants.length ); i++) {
-            delete crowdsaleParticipants[i];
-        }
-
-        crowdsaleParticipants.length = crowdsaleParticipants.length - participantIndx;
-    }
 
     // @notice Send ether to the fund collection wallet
     function forwardFunds()
         public
-        minimalCapReached
     {
         wallet.transfer(this.balance);
     }

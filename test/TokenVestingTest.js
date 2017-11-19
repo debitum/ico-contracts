@@ -8,6 +8,7 @@ contract('TokenVesting.sol', function (accounts) {
     beforeEach('setup contract for each test', async function () {
         let now = Math.round(new Date().getTime()/1000);
         token = await DebitumToken.new();
+        await token.unfreeze();
         tokenVesting = await TokenVesting.new(token.address, now , 0, {from: accounts[0]});
     });
 

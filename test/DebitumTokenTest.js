@@ -2,9 +2,13 @@ let DebitumToken = artifacts.require("./DebitumToken.sol");
 var ERC23Receiver = artifacts.require("./helpers/ERC23ReceiverMock.sol");
 
 contract('DebitumToken.sol', function (accounts) {
+    let token;
+    beforeEach('setup contract for each test', async function () {
+        token = await DebitumToken.new(accounts[0]);
+        await token.unfreeze();
+    });
 
     it("Token contract should return the correct total supply after construction", async function() {
-        let token = await DebitumToken.new(accounts[0]);
         let totalSupply = await token.totalSupply();
 
         assert.equal(totalSupply.toNumber(), web3.toWei(1000000000, 'ether'));
@@ -12,7 +16,6 @@ contract('DebitumToken.sol', function (accounts) {
 
     it('Token should throw an error when trying to transfer to 0x0', async function() {
         let transferError;
-        let token = await DebitumToken.new(accounts[0]);
 
         try {
             await token.transfer(0x0, 100);
@@ -26,7 +29,7 @@ contract('DebitumToken.sol', function (accounts) {
 
     it('Token should throw an error when trying to transferFrom to 0x0', async function() {
         let transferError;
-        let token = await DebitumToken.new(accounts[0]);
+
         await token.approve(accounts[1], 100);
 
         try {
@@ -38,39 +41,21 @@ contract('DebitumToken.sol', function (accounts) {
         assert.notEqual(transferError, undefined, 'Error must be thrown, when trying to transferFrom to 0x0');
     });
 
-    it("Token creator at the start has all tokens", function () {
-        var TokenContract;
-        var ownerTokenBalance;
-        return DebitumToken.new().then(function (instance) {
-            TokenContract = instance;
-            return TokenContract.balanceOf(web3.eth.accounts[0], {from: accounts[0], gass: 3000000})
-        }).then(function (balance){
-            ownerTokenBalance = balance.toNumber();
-            return TokenContract.totalSupply();
-        }).then(function (totalSupply) {
-            assert.equal(ownerTokenBalance, totalSupply, "Owner of token contract has all tokens");
-        });
+    it("Token creator at the start has all tokens", async function () {
+        let ownerTokenBalance = (await token.balanceOf(web3.eth.accounts[0], {from: accounts[0], gass: 3000000})).toNumber();
+        assert.equal(ownerTokenBalance, await token.totalSupply(), "Owner of token contract has all tokens");
     });
 
-    it("Should return the correct allowance amount after approval",  function() {
-        var TokenContract;
-        return DebitumToken.new().then(function (instance) {
-            TokenContract = instance;
-            return TokenContract.approve(web3.eth.accounts[1], web3.toWei(100, 'ether'), {from: accounts[0], gass: 3000000})
-        }).then(function (tokenApprove){
-
-            return TokenContract.allowance(web3.eth.accounts[0], web3.eth.accounts[1]);
-        }).then(function (allowance) {
-            assert.equal(allowance, web3.toWei(100, 'ether'), "Allowance must be the same as approved");
-        });
+    it("Should return the correct allowance amount after approval",  async function() {
+        await token.approve(web3.eth.accounts[1], web3.toWei(100, 'ether'), {from: accounts[0], gass: 3000000})
+        let allowance = await token.allowance(web3.eth.accounts[0], web3.eth.accounts[1]);
+        assert.equal(allowance, web3.toWei(100, 'ether'), "Allowance must be the same as approved");
     });
-
 
 
     it("Should throw an error when trying to transfer more than allowed", async function() {
-        let token = await DebitumToken.new();
-        let approve = await token.approve(web3.eth.accounts[1], web3.toWei(99, 'ether'),  {from: accounts[0], gass: 3000000});
-        var transferError;
+        await token.approve(web3.eth.accounts[1], web3.toWei(99, 'ether'),  {from: accounts[0], gass: 3000000});
+        let transferError;
         try {
             let transfer = await token.transferFrom(web3.eth.accounts[0], web3.eth.accounts[2], web3.toWei(100, 'ether'), {from: accounts[1], gass: 3000000});
         } catch (error) {
@@ -79,29 +64,17 @@ contract('DebitumToken.sol', function (accounts) {
         assert.notEqual(transferError, undefined, 'Error must be thrown');
     });
 
-    it("Should return correct balances after transfering from another account", function() {
-        var TokenContract;
-        var balance0, balance1, balance2;
+    it("Should return correct balances after transfering from another account", async function() {
+        let balance0, balance1, balance2;
+        await token.approve(web3.eth.accounts[1], web3.toWei(100, 'ether'), {from: accounts[0], gass: 3000000});
+        await token.transferFrom(web3.eth.accounts[0], web3.eth.accounts[2], web3.toWei(100, 'ether'), {from: accounts[1], gass: 3000000});
+        balance0 = (await token.balanceOf(web3.eth.accounts[0])).toNumber();
+        balance1 = (await token.balanceOf(web3.eth.accounts[1])).toNumber();
+        balance2 = (await token.balanceOf(web3.eth.accounts[2])).toNumber();
 
-        return DebitumToken.new().then(function (instance) {
-            TokenContract = instance;
-            return TokenContract.approve(web3.eth.accounts[1], web3.toWei(100, 'ether'), {from: accounts[0], gass: 3000000})
-        }).then(function () {
-            return TokenContract.transferFrom(web3.eth.accounts[0], web3.eth.accounts[2], web3.toWei(100, 'ether'), {from: accounts[1], gass: 3000000});
-        }).then(function () {
-            return TokenContract.balanceOf(web3.eth.accounts[0]);
-        }).then(function (balance) {
-            balance0 = balance.toNumber();
-            return TokenContract.balanceOf(web3.eth.accounts[1]);
-        }).then(function (balance) {
-            balance1 = balance.toNumber();
-            return TokenContract.balanceOf(web3.eth.accounts[2]);
-        }).then(function (balance) {
-            balance2 = balance.toNumber();
-            assert.equal(balance0, web3.toWei(1000000000 - 100, 'ether'));
-            assert.equal(balance1, 0);
-            assert.equal(balance2, web3.toWei(100, 'ether'));
-        });
+        assert.equal(balance0, web3.toWei(1000000000 - 100, 'ether'));
+        assert.equal(balance1, 0);
+        assert.equal(balance2, web3.toWei(100, 'ether'));
     });
 
     it("Token should return correct balances after transfer", async function() {
@@ -165,10 +138,26 @@ contract('DebitumToken.sol', function (accounts) {
         assert.equal((await token.balanceOf(tokenReceiver.address)).toNumber(), web3.toWei(1, 'ether'), "Contract has to receive tokens");
     });
 
+    it("Till token is freezed, only owner can transfer", async function() {
+        let transferError;
+        var token = await DebitumToken.new(web3.eth.accounts[0]);
+        await token.transfer(web3.eth.accounts[1], web3.toWei(3, 'ether'));
+        try {
+            await token.transfer(web3.eth.accounts[2], web3.toWei(1, 'ether') , {from: accounts[1], gass: 3000000});
+        }catch (error) {
+            transferError = error;
+        }
+        await token.unfreeze();
+        await token.transfer(web3.eth.accounts[2], web3.toWei(1, 'ether') , {from: accounts[1], gass: 3000000});
+        assert.notEqual(transferError, undefined, 'Error must be thrown, when user tries to send tokens till them are not unfreezed');
+
+        assert.equal((await token.balanceOf(web3.eth.accounts[1])).toNumber(), web3.toWei(2, 'ether'), "Account 1 has to receive tokens");
+        assert.equal((await token.balanceOf(web3.eth.accounts[2])).toNumber(), web3.toWei(1, 'ether'), "Account 2 has to receive tokens");
+    });
+
     describe('Validating allowance updates to spender', function() {
         let preApproved;
         let token;
-
 
         it('Allowance starts with zero', async function() {
             token = await DebitumToken.new(web3.eth.accounts[0]);

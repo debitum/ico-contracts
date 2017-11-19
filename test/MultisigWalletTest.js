@@ -61,6 +61,7 @@ contract('MultiSigWallet', function(accounts) {
     it('After getting required confirmations tokens transferred to destination', async function () {
         //given
         let token = await DebitumToken.new();
+        await token.unfreeze();
         let additionalOwners = accounts.slice(1, 4);
         const REQUIRED_CONFIRMATIONS = 2;
         const TRANSACTION_DESTINATION = web3.eth.accounts[2];
