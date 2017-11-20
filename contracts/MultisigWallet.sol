@@ -167,8 +167,8 @@ contract MultiSigWallet is ERC23Receiver {
     modifier validRequirement(uint _ownersCount, uint _required) {
         require(_ownersCount <= MAX_OWNER_COUNT);
         require(_required <= _ownersCount);
-        require(_required > 0);
-        require(_ownersCount > 0);
+        require(_required > 1);
+        require(_ownersCount > 1);
         _;
     }
 

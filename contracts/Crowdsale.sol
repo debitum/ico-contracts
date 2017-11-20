@@ -139,7 +139,6 @@ contract Crowdsale is Ownable {
         _;
     }
 
-
     modifier minimalCapReached() {
         require(weiRaised >= FIRST_STEP_UPPER_LIMIT);
         _;
@@ -155,10 +154,10 @@ contract Crowdsale is Ownable {
        * - Prefunding: We have not passed start time yet
        * - Funding: Active crowdsale
        * - Success: Minimum funding goal reached
-       * - Failure: Minimum funding goal not reached before ending time
+       * - Finished: Crowdsale ended
        * - Finalized: The finalized has been called and succesfully executed
        */
-    enum State{PreFunding, Funding, Success, Failure, Finalized}
+    enum State{PreFunding, Funding, Success, Finished, Finalized}
 
 
     function Crowdsale(
@@ -345,5 +344,12 @@ contract Crowdsale is Ownable {
         return length > 0;
     }
 
+    function getState() external constant returns (State) {
+        if (finalized) return State.Finalized;
+        else if (now > endsAt || weiRaised >= CROWDFUND_HARD_CAP) return State.Finished;
+        else if (weiRaised >= FIRST_STEP_UPPER_LIMIT) return State.Success;
+        else if (now >= startsAt) return State.Funding;
+        else return State.PreFunding;
+    }
 
 }

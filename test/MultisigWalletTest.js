@@ -124,6 +124,28 @@ contract('MultiSigWallet', function(accounts) {
         assert.equal(owners.length, 4, "There are 4 owners after deletion");
     });
 
+    it("Owner add needs confirmations of required owners", async function () {
+        let additionalOwners = accounts.slice(1, 3);
+        const REQUIRED_CONFIRMATION = 3;
+        let wallet = await MultiSigWallet.new(additionalOwners, REQUIRED_CONFIRMATION);
+
+        let owners = await wallet.getOwners();
+
+        assert.equal(owners.length, 3, "There are 3  owners");
+
+        await wallet.addOwner(web3.eth.accounts[5]);
+        owners = await wallet.getOwners();
+        assert.equal(owners.length, 3, "There are 3 owners after add");
+
+        await wallet.addOwner(web3.eth.accounts[5], {from: accounts[1], gass: 3000000});
+        owners = await wallet.getOwners();
+        assert.equal(owners.length, 3, "There are 3 owners after add");
+
+        await wallet.addOwner(web3.eth.accounts[5], {from: accounts[2], gass: 3000000});
+        owners = await wallet.getOwners();
+        assert.equal(owners.length, 4, "There are 4 owners after add");
+    });
+
 
 
 });
