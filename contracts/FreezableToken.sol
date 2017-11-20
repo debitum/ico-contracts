@@ -24,17 +24,17 @@ contract FreezableToken is iERC23Token, StandardToken, Ownable {
 
     function transfer(address _to, uint _value, bytes _data) canTransfer(msg.sender) canTransfer(msg.sender) returns (bool success) {
         //filtering if the target is a contract with bytecode inside it
-        assert(super.transfer(_to, _value)); // do a normal token transfer
+        require(super.transfer(_to, _value)); // do a normal token transfer
         if (isContract(_to)) {
-            assert(contractFallback(msg.sender, _to, _value, _data));
+            require(contractFallback(msg.sender, _to, _value, _data));
         }
         return true;
     }
 
     function transferFrom(address _from, address _to, uint _value, bytes _data) canTransfer(msg.sender) returns (bool success) {
-        assert(super.transferFrom(_from, _to, _value)); // do a normal token transfer
+        require(super.transferFrom(_from, _to, _value)); // do a normal token transfer
         if (isContract(_to)) {
-            assert(contractFallback(_from, _to, _value, _data));
+            require(contractFallback(_from, _to, _value, _data));
         }
         return true;
     }
