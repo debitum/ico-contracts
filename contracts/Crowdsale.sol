@@ -65,7 +65,7 @@ contract Crowdsale is Ownable {
     uint256 public THIRD_STEP_RATE = 2888;
 
     // Max amount of ether which could be invested for ether account which not proceeded verification
-    uint256 public NOT_VERIFIED_WEI_LIMIT = 30 * 1 ether;
+    uint256 public constant NOT_VERIFIED_WEI_LIMIT = 30 * 1 ether;
 
     uint private soldTokenAmount;
 
@@ -134,8 +134,8 @@ contract Crowdsale is Ownable {
         _;
     }
 
-    modifier verifiedForCrowdsale(address participant, uint256 weiAmount) {
-        require(isRegisteredEthereumAddress[participant] || tokenAmountOf[participant].safeAdd(weiAmount) <= NOT_VERIFIED_WEI_LIMIT);
+    modifier verifiedForCrowdsale(address _participant, uint256 _weiAmount) {
+        require(isRegisteredEthereumAddress[_participant] || investedAmountOf[_participant].safeAdd(_weiAmount) <= NOT_VERIFIED_WEI_LIMIT);
         _;
     }
 
@@ -225,15 +225,19 @@ contract Crowdsale is Ownable {
         verifiedForCrowdsale(msg.sender, msg.value)
         payable
     {
-
         uint256 weiAmount = investmentWeiLimit(msg.value);
 
         // calculate token amount to be transferred
         uint256 tokens = calculateTokenAmountFor(weiRaised, weiAmount);
         weiRaised = weiRaised.safeAdd(weiAmount);
-        investedAmountOf[msg.sender] = investedAmountOf[msg.sender].safeAdd(weiRaised);
+
+        investedAmountOf[msg.sender] = investedAmountOf[msg.sender].safeAdd(weiAmount);
         tokenAmountOf[msg.sender] = tokenAmountOf[msg.sender].safeAdd(tokens);
         token.transfer(msg.sender, tokens);
+
+        if(weiAmount < msg.value) {
+            msg.sender.transfer(msg.value.safeSub(weiAmount));
+        }
         TokenPurchased(msg.sender, weiAmount, tokens, now);
     }
 

@@ -362,5 +362,67 @@ contract('Crowdsale.sol', function (accounts) {
         assert.equal((await token.balanceOf(web3.eth.accounts[3])).toNumber(), web3.toWei(1, 'ether'), "Account 3 has to receive tokens");
     });
 
+    it("If hard cap reached it will return not used ether to contributor", async function () {
+        let now = Math.round(new Date().getTime() / 1000);
+        let additionalOwners = accounts.slice(1, 4);
+        let wallet = await MultiSigWallet.new(additionalOwners, 2);
+        crowdsale = await Crowdsale.new(
+            now,
+            now + 1,
+            wallet.address,
+            web3.toWei(1, 'ether'),
+            3750,
+            web3.toWei(2, 'ether'),
+            3300,
+            web3.toWei(3, 'ether'),
+            2888
+        );
+
+        let account2Balance = web3.eth.getBalance(web3.eth.accounts[7]).toNumber();
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[7],
+                to: contract.address,
+                value: web3.toWei(5, 'ether'),
+            }
+        );
+
+        assert.isTrue(account2Balance -  web3.toWei(4, 'ether') < web3.eth.getBalance(web3.eth.accounts[7]).toNumber(), "2 ehter has to be returned to contributor");
+    });
+
+    it("Contribution data is collected for each contributor", async function () {
+        let now = Math.round(new Date().getTime() / 1000);
+        let additionalOwners = accounts.slice(1, 4);
+        let wallet = await MultiSigWallet.new(additionalOwners, 2);
+        crowdsale = await Crowdsale.new(
+            now,
+            now + 1,
+            wallet.address,
+            web3.toWei(1, 'ether'),
+            3750,
+            web3.toWei(2, 'ether'),
+            3300,
+            web3.toWei(3, 'ether'),
+            2888
+        );
+
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[4],
+                to: contract.address,
+                value: web3.toWei(0.3, 'ether'),
+            }
+        );
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[4],
+                to: contract.address,
+                value: web3.toWei(1.2, 'ether'),
+            }
+        );
+
+        //assert.equal((await crowdsale.investedAmountOf(web3.eth.accounts[7])).toNumber(), web3.toWei(1.2, 'ether'), "1.2 ehter was contributed");
+    });
+
 
 });
