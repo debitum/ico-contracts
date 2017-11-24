@@ -396,7 +396,7 @@ contract('Crowdsale.sol', function (accounts) {
         let wallet = await MultiSigWallet.new(additionalOwners, 2);
         crowdsale = await Crowdsale.new(
             now,
-            now + 1,
+            now + 3600,
             wallet.address,
             web3.toWei(1, 'ether'),
             3750,
@@ -421,7 +421,8 @@ contract('Crowdsale.sol', function (accounts) {
             }
         );
 
-        //assert.equal((await crowdsale.investedAmountOf(web3.eth.accounts[7])).toNumber(), web3.toWei(1.2, 'ether'), "1.2 ehter was contributed");
+        assert.equal((await crowdsale.investedAmountOf(web3.eth.accounts[4])).toNumber(), web3.toWei(1.5, 'ether'), "1.5 ehter was contributed");
+        assert.equal((await crowdsale.tokenAmountOf(web3.eth.accounts[4])).toNumber(), web3.toWei(5400, 'ether'), "5400 token was purchased");
     });
 
 
