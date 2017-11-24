@@ -1,7 +1,5 @@
 let Crowdsale = artifacts.require("./Crowdsale.sol");
-let DebitumToken = artifacts.require("./DebitumToken.sol");
 let MultiSigWallet = artifacts.require("./MultiSigWallet.sol");
-let ERC23Receiver = artifacts.require("./helpers/ERC23ReceiverMock.sol");
 
 contract('Crowdsale.sol', function (accounts) {
     let crowdsale;
@@ -45,7 +43,5 @@ contract('Crowdsale.sol', function (accounts) {
         assert.equal((await crowdsale.investedAmountOf(web3.eth.accounts[4])).toNumber(), web3.toWei(1.5, 'ether'), "1.5 ehter was contributed");
         assert.equal((await crowdsale.tokenAmountOf(web3.eth.accounts[4])).toNumber(), web3.toWei(5400, 'ether'), "5400 token was purchased");
     });
-
-
 
 });

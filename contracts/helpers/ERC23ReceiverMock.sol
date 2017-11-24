@@ -4,7 +4,7 @@ pragma solidity ^0.4.11;
 contract ERC23ReceiverMock {
 
     bool public isTokenReceiver;
-    event TokenReceived(address _sender, address _origin, uint _value, bytes _data, bool answer);
+    event TokenReceived(address _origin, uint _value, bytes _data, bool answer);
 
     function ERC23ReceiverMock(bool _isReceiver) {
         isTokenReceiver = _isReceiver;
@@ -13,8 +13,8 @@ contract ERC23ReceiverMock {
     function () payable {
     }
 
-    function tokenFallback(address _sender, address _origin, uint _value, bytes _data) returns (bool ok){
-        TokenReceived(_sender, _origin, _value, _data, isTokenReceiver);
+    function tokenFallback(address _origin, uint _value, bytes _data) returns (bool ok){
+        TokenReceived(_origin, _value, _data, isTokenReceiver);
         return isTokenReceiver;
     }
 

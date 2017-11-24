@@ -5,7 +5,7 @@ import './zeppelin/SafeERC20.sol';
 import './zeppelin/Ownable.sol';
 
 import './zeppelin/SafeMath.sol';
-import './interface/iEC23Receiver.sol';
+import './interface/iERC223Receiver.sol';
 
 /**
  * @title TokenVesting
@@ -13,7 +13,7 @@ import './interface/iEC23Receiver.sol';
  * typical vesting scheme, with a cliff and vesting period. Optionally revocable by the
  * owner.
  */
-contract TokenVesting is Ownable, ERC23Receiver {
+contract TokenVesting is Ownable, ERC223Receiver {
   using SafeMath for uint256;
   using SafeERC20 for StandardToken;
 
@@ -21,9 +21,7 @@ contract TokenVesting is Ownable, ERC23Receiver {
   event BeneficiaryAdded(address _beneficiary, uint256 _amount, uint _createdOn);
   event BeneficiaryRemoved(address _beneficiary, uint _createdOn);
 
-
-  uint public start;
-  uint public duration;
+  uint public endDate;
 
   StandardToken public token;
   bool public released;
@@ -35,7 +33,7 @@ contract TokenVesting is Ownable, ERC23Receiver {
 
   modifier canRelease() {
     require(!released);
-    require(now >= start + duration);
+    require(now >= endDate);
     _;
   }
 
@@ -53,18 +51,17 @@ contract TokenVesting is Ownable, ERC23Receiver {
 
   /**
    * @dev Creates a vesting contract that vests its balance of ERC20 token to the
-   * beneficiaries, gradually in a linear fashion until _start + _duration. By then all
+   * beneficiaries, gradually in a linear fashion until _end. By then all
    * of the balance will have vested.
    * @param _token address of the token contract
-   * @param _duration duration of the period in which the tokens will vest
+   * @param _end timestamp of period till which the tokens will vest
    */
-  function TokenVesting(StandardToken _token, uint _start, uint _duration) {
-    require(address(_token) != 0x0);
-
-    duration = _duration;
-    start = _start;
-    token = _token;
+  function TokenVesting(StandardToken _token, uint _end) {
+      require(address(_token) != 0x0);
+      token = _token;
+      endDate = _end;
   }
+
 
   /**
    * @notice Add beneficiary to contract
@@ -72,9 +69,9 @@ contract TokenVesting is Ownable, ERC23Receiver {
    * @param _tokenAmount amount of tokens which account will retrieve
    */
   function addBeneficiary(address _beneficiary, uint256 _tokenAmount)
-    public
-    tokenAmountEnoughForVesting(_tokenAmount)
-    onlyOwner
+      public
+      tokenAmountEnoughForVesting(_tokenAmount)
+      onlyOwner
   {
       if(beneficiaries[_beneficiary] == 0) {
         beneficiaryOwners.push(_beneficiary);
@@ -86,49 +83,81 @@ contract TokenVesting is Ownable, ERC23Receiver {
   }
 
   /**
+  * @notice Withdraw tokens for msg.sender
+  */
+  function withdraw()
+    public
+    canRelease {
+      withdrawFor(msg.sender);
+  }
+
+  /**
+  * @notice Withdraw tokens for particular owner
+  */
+  function withdrawFor(address _owner)
+    public
+    canRelease {
+      if(beneficiaries[_owner] > 0) {
+          uint256 beneficiary;
+          beneficiary = beneficiaries[_owner];
+          beneficiaries[_owner] = 0;
+          token.safeTransfer(_owner, beneficiary);
+      }
+  }
+
+  /**
    * @notice Transfers vested tokens to beneficiaries.
    */
   function release()
     public
     canRelease
   {
-    for (uint i = 0; i < beneficiaryOwners.length; i++) {
-      token.safeTransfer(beneficiaryOwners[i], beneficiaries[beneficiaryOwners[i]]);
-    }
-    released = true;
-    Released(totalVestingTokenAmount, now);
+      uint256 beneficiary;
+      for (uint i = 0; i < beneficiaryOwners.length; i++) {
+        if(beneficiaries[beneficiaryOwners[i]] > 0){
+            beneficiary = beneficiaries[beneficiaryOwners[i]];
+            beneficiaries[beneficiaryOwners[i]] = 0;
+            token.safeTransfer(beneficiaryOwners[i], beneficiary);
+        }
+      }
+      released = true;
+      token.safeTransfer(owner, token.balanceOf(address(this)));
+      Released(totalVestingTokenAmount, now);
   }
 
   /**
    * @notice Allows the owner to remove beneficiary from the vesting.
    */
   function removeBeneficiary(address _beneficiary)
-     public
-     canRemoveBeneficiary(_beneficiary)
-     onlyOwner
+      public
+      canRemoveBeneficiary(_beneficiary)
+      onlyOwner
   {
-    token.safeTransfer(owner, beneficiaries[_beneficiary]);
-    beneficiaries[_beneficiary] = 0;
+      uint256 beneficiary = beneficiaries[_beneficiary];
+      beneficiaries[_beneficiary] = 0;
+      token.safeTransfer(owner, beneficiary);
+      totalVestingTokenAmount = totalVestingTokenAmount.safeSub(beneficiary);
 
-    for (uint i = 0; i < beneficiaryOwners.length - 1; i++) {
-      if (beneficiaryOwners[i] == _beneficiary) {
-        beneficiaryOwners[i] = beneficiaryOwners[beneficiaryOwners.length - 1];
-        break;
+      for (uint i = 0; i < beneficiaryOwners.length - 1; i++) {
+        if (beneficiaryOwners[i] == _beneficiary) {
+            beneficiaryOwners[i] = beneficiaryOwners[beneficiaryOwners.length - 1];
+            break;
+        }
       }
-    }
 
-    delete beneficiaryOwners[beneficiaryOwners.length - 1];
-    beneficiaryOwners.length--;
+      delete beneficiaryOwners[beneficiaryOwners.length - 1];
+      beneficiaryOwners.length--;
 
-    BeneficiaryRemoved(_beneficiary, now);
+      BeneficiaryRemoved(_beneficiary, now);
   }
 
-  function tokenFallback(address _sender, address _origin, uint _value, bytes _data) public returns (bool ok) {
-    return supportsToken(msg.sender);
+  function tokenFallback(address _origin, uint _value, bytes _data) public returns (bool ok) {
+    require(supportsToken(msg.sender));
+    return true;
   }
 
   function supportsToken(address _token) public returns (bool){
-    return _token == address(token);
+    return true;//_token == address(token);
   }
 
 }

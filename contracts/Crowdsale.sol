@@ -3,6 +3,7 @@ pragma solidity ^0.4.15;
 import "./zeppelin/SafeMath.sol";
 import "./zeppelin/Ownable.sol";
 import "./DebitumToken.sol";
+import "./MultisigWallet.sol";
 
 
 /**
@@ -22,7 +23,7 @@ contract Crowdsale is Ownable {
     DebitumToken public token;
 
     // address where funds are collected
-    address public wallet;
+    MultiSigWallet public wallet;
 
     // Server side address that allowed add contributors (Ethereum addresses) that can participate in crowdsale
     address public signerAddress;
@@ -163,7 +164,7 @@ contract Crowdsale is Ownable {
     function Crowdsale(
         uint _start,
         uint _end,
-        address _wallet,
+        MultiSigWallet _wallet,
         uint256 _firstStepUpperLimit,
         uint256 _firstStepRate,
         uint256 _secondStepUpperLimit,
@@ -339,7 +340,7 @@ contract Crowdsale is Ownable {
     function forwardFunds()
         public
     {
-        wallet.transfer(this.balance);
+        address(wallet).transfer(this.balance);
     }
 
     function isContract(address _addr) private returns (bool is_contract) {

@@ -1,6 +1,6 @@
 pragma solidity ^0.4.15;
 
-import './interface/iEC23Receiver.sol';
+import './interface/iERC223Receiver.sol';
 import './zeppelin/StandardToken.sol';
 
 
@@ -12,7 +12,7 @@ import './zeppelin/StandardToken.sol';
  * - owners management
  * - ether and token transactions management
  */
-contract MultiSigWallet is ERC23Receiver {
+contract MultiSigWallet is ERC223Receiver {
 
 
     // Max size of owners that can be added to wallet
@@ -515,7 +515,7 @@ contract MultiSigWallet is ERC23Receiver {
 
     /// @dev Implementation of ERC223 receiver fallback function in order to protect
     /// @dev sending tokens (standard ERC223) to smart tokens who doesn't except them
-    function tokenFallback(address _sender, address _origin, uint _value, bytes _data) public returns (bool ok) {
+    function tokenFallback(address _origin, uint _value, bytes _data) public returns (bool ok) {
         return true;
     }
 }

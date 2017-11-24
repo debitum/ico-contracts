@@ -1,5 +1,6 @@
 let TokenVesting = artifacts.require("./TokenVesting.sol");
 let DebitumToken = artifacts.require("./DebitumToken.sol");
+let TokenVestingAttacker = artifacts.require("./helpers/TokenVestingAttacker.sol");
 
 contract('TokenVesting.sol', function (accounts) {
     let tokenVesting;
@@ -9,7 +10,7 @@ contract('TokenVesting.sol', function (accounts) {
         let now = Math.round(new Date().getTime()/1000);
         token = await DebitumToken.new();
         await token.unfreeze();
-        tokenVesting = await TokenVesting.new(token.address, now , 0, {from: accounts[0]});
+        tokenVesting = await TokenVesting.new(token.address, now,  {from: accounts[0]});
     });
 
     it('Only owner can add beneficiary', async function () {
@@ -63,6 +64,35 @@ contract('TokenVesting.sol', function (accounts) {
 
         //then
         assert.equal((await token.balanceOf(web3.eth.accounts[2])).toNumber(), web3.toWei(1, 'ether'), "One Debitum token has to be transferred");
+        assert.equal((await token.balanceOf(web3.eth.accounts[0])).toNumber(), (await token.totalSupply()).toNumber() - web3.toWei(1, 'ether'), "Not used tokens returned to owner");
+    });
+
+    it('Token can be vested form save user just once', async function () {
+        //given
+        await token.transfer(tokenVesting.address, web3.toWei(1.1, 'ether'), {from: accounts[0]});
+        let attacker = await TokenVestingAttacker.new(tokenVesting.address);
+        await tokenVesting.addBeneficiary(attacker.address, web3.toWei(0.5, 'ether'), {from: accounts[0]});
+
+        //when
+        await tokenVesting.release();
+
+        //then
+        assert.equal((await token.balanceOf(attacker.address)).toNumber(), web3.toWei(0.5, 'ether'), "Debitum token has to be transferred");
+    });
+
+    it('Beneficiary owner can withdraw their tokens', async function () {
+        //given
+        await token.transfer(tokenVesting.address, web3.toWei(1.1, 'ether'), {from: accounts[0]});
+        await tokenVesting.addBeneficiary(web3.eth.accounts[2], web3.toWei(0.5, 'ether'), {from: accounts[0]});
+        await tokenVesting.addBeneficiary(web3.eth.accounts[1], web3.toWei(0.5, 'ether'), {from: accounts[0]});
+
+        //when
+        await tokenVesting.withdraw( {from: accounts[2]});
+        await tokenVesting.withdrawFor(web3.eth.accounts[1], {from: accounts[2]});
+
+        //then
+        assert.equal((await token.balanceOf(web3.eth.accounts[2])).toNumber(), web3.toWei(0.5, 'ether'), "Debitum token has to be transferred");
+        assert.equal((await token.balanceOf(web3.eth.accounts[1])).toNumber(), web3.toWei(0.5, 'ether'), "Debitum token has to be transferred");
     });
 
 });

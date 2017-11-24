@@ -3,11 +3,11 @@ pragma solidity ^0.4.15;
 import './zeppelin/SafeMath.sol';
 import './zeppelin/Ownable.sol';
 import './zeppelin/StandardToken.sol';
-import './interface/iEC23Receiver.sol';
-import './interface/iERC23Token.sol';
+import './interface/iERC223Receiver.sol';
+import './interface/iERC223Token.sol';
 
 
-contract FreezableToken is iERC23Token, StandardToken, Ownable {
+contract FreezableToken is iERC223Token, StandardToken, Ownable {
 
     event ContractTransfer(address indexed _from, address indexed _to, uint _value, bytes _data);
 
@@ -50,8 +50,8 @@ contract FreezableToken is iERC23Token, StandardToken, Ownable {
     //function that is called when transaction target is a contract
     function contractFallback(address _origin, address _to, uint _value, bytes _data) private returns (bool) {
         ContractTransfer(_origin, _to, _value, _data);
-        ERC23Receiver reciever = ERC23Receiver(_to);
-        return reciever.tokenFallback(msg.sender, _origin, _value, _data);
+        ERC223Receiver reciever = ERC223Receiver(_to);
+        return reciever.tokenFallback(_origin, _value, _data);
     }
 
     //assemble the given address bytecode. If bytecode exists then the _addr is a contract.
