@@ -25,9 +25,6 @@ contract Crowdsale is Ownable {
     // address where funds are collected
     MultiSigWallet public wallet;
 
-    // Server side address that allowed add contributors (Ethereum addresses) that can participate in crowdsale
-    address public signerAddress;
-
     // How much ETH each address has invested in crowdsale
     mapping (address => uint256) public investedAmountOf;
 
@@ -140,11 +137,6 @@ contract Crowdsale is Ownable {
         _;
     }
 
-    modifier minimalCapReached() {
-        require(weiRaised >= FIRST_STEP_UPPER_LIMIT);
-        _;
-    }
-
     modifier notFinalized() {
         require(!finalized);
         _;
@@ -174,6 +166,7 @@ contract Crowdsale is Ownable {
     ) {
         require(_start > 0);
         require(_start < _end);
+        require(address(_wallet) != 0x0);
 
         if ( _firstStepUpperLimit > 0
             && _firstStepRate > 0

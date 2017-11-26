@@ -484,12 +484,13 @@ contract MultiSigWallet is ERC223Receiver {
         uint[] memory transactionIdsTemp = new uint[](transactionCount);
         uint count = 0;
         uint i;
-        for (i=0; i<transactionCount; i++)
-        if ((pending && !transactions[i].executed) ||
-        (executed && transactions[i].executed))
-        {
-            transactionIdsTemp[count] = i;
-            count += 1;
+        for (i=0; i<transactionCount; i++){
+            if ((pending && !transactions[i].executed) ||
+            (executed && transactions[i].executed))
+            {
+                transactionIdsTemp[count] = i;
+                count += 1;
+            }
         }
         _transactionIds = new uint[](to - from);
         for (i=from; i<to; i++)
@@ -497,19 +498,11 @@ contract MultiSigWallet is ERC223Receiver {
     }
 
     function deleteOwnersAddApproval(address _confirmedOwner) private {
-        for (uint j = 0; j < ownersConfirmedOwnerAdd[_confirmedOwner].length; j++) {
-            delete ownersConfirmedOwnerAdd[_confirmedOwner][j];
-        }
-
-        ownersConfirmedOwnerAdd[_confirmedOwner].length = 0;
+        delete ownersConfirmedOwnerAdd[_confirmedOwner];
     }
 
     function deleteOwnersRemoveApproval(address _confirmedOwner) private {
-        for (uint j = 0; j < ownersConfirmedOwnerRemove[_confirmedOwner].length; j++) {
-            delete ownersConfirmedOwnerRemove[_confirmedOwner][j];
-        }
-
-        ownersConfirmedOwnerRemove[_confirmedOwner].length = 0;
+        delete ownersConfirmedOwnerRemove[_confirmedOwner];
     }
 
 
