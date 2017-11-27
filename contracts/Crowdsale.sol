@@ -1,4 +1,4 @@
-pragma solidity ^0.4.15;
+pragma solidity 0.4.18;
 
 import "./zeppelin/SafeMath.sol";
 import "./zeppelin/Ownable.sol";
@@ -132,8 +132,8 @@ contract Crowdsale is Ownable {
         _;
     }
 
-    modifier verifiedForCrowdsale(address _participant, uint256 _weiAmount) {
-        require(isRegisteredEthereumAddress[_participant] || investedAmountOf[_participant].safeAdd(_weiAmount) <= NOT_VERIFIED_WEI_LIMIT);
+    modifier verifiedForCrowdsale {
+        require(isRegisteredEthereumAddress[msg.sender] || investedAmountOf[msg.sender].add(msg.value) <= NOT_VERIFIED_WEI_LIMIT);
         _;
     }
 
@@ -163,7 +163,7 @@ contract Crowdsale is Ownable {
         uint256 _secondStepRate,
         uint256 _crowdfundHardCap,
         uint256 _thirdStepRate
-    ) {
+    ) public {
         require(_start > 0);
         require(_start < _end);
         require(address(_wallet) != 0x0);
@@ -195,7 +195,7 @@ contract Crowdsale is Ownable {
         endsAt = _end;
     }
 
-    function () payable {
+    function () public payable {
         buyTokens();
     }
 
@@ -216,21 +216,21 @@ contract Crowdsale is Ownable {
     function buyTokens()
         public
         investmentCanProceed
-        verifiedForCrowdsale(msg.sender, msg.value)
+        verifiedForCrowdsale
         payable
     {
         uint256 weiAmount = investmentWeiLimit(msg.value);
 
         // calculate token amount to be transferred
         uint256 tokens = calculateTokenAmountFor(weiRaised, weiAmount);
-        weiRaised = weiRaised.safeAdd(weiAmount);
+        weiRaised = weiRaised.add(weiAmount);
 
-        investedAmountOf[msg.sender] = investedAmountOf[msg.sender].safeAdd(weiAmount);
-        tokenAmountOf[msg.sender] = tokenAmountOf[msg.sender].safeAdd(tokens);
+        investedAmountOf[msg.sender] = investedAmountOf[msg.sender].add(weiAmount);
+        tokenAmountOf[msg.sender] = tokenAmountOf[msg.sender].add(tokens);
         token.transfer(msg.sender, tokens);
 
         if(weiAmount < msg.value) {
-            msg.sender.transfer(msg.value.safeSub(weiAmount));
+            msg.sender.transfer(msg.value.sub(weiAmount));
         }
         TokenPurchased(msg.sender, weiAmount, tokens, now);
     }
@@ -247,18 +247,18 @@ contract Crowdsale is Ownable {
       * @param _weiRaised wei already raised
       * @param _weiAmount invested wei amount for token purchase
       */
-    function calculateTokenAmountFor(uint256 _weiRaised, uint256 _weiAmount) constant  public returns(uint256) {
+    function calculateTokenAmountFor(uint256 _weiRaised, uint256 _weiAmount) view  public returns(uint256) {
         if(_weiAmount == 0) {
             return 0;
         } else {
             uint256 tokenAmount = 0;
             _weiAmount = investmentWeiLimit(_weiAmount);
             if (weiLimitOfCurrentStep(_weiRaised) <= _weiAmount) {
-                tokenAmount = weiLimitOfCurrentStep(_weiRaised).safeMul(currentRate(_weiRaised));
-                uint256 tokenAmountNextStep = calculateTokenAmountFor(_weiRaised.safeAdd(weiLimitOfCurrentStep(_weiRaised)), _weiAmount.safeSub(weiLimitOfCurrentStep(_weiRaised)));
-                tokenAmount = tokenAmount.safeAdd(tokenAmountNextStep);
+                tokenAmount = weiLimitOfCurrentStep(_weiRaised).mul(currentRate(_weiRaised));
+                uint256 tokenAmountNextStep = calculateTokenAmountFor(_weiRaised.add(weiLimitOfCurrentStep(_weiRaised)), _weiAmount.sub(weiLimitOfCurrentStep(_weiRaised)));
+                tokenAmount = tokenAmount.add(tokenAmountNextStep);
             } else {
-                tokenAmount = _weiAmount.safeMul(currentRate(_weiRaised));
+                tokenAmount = _weiAmount.mul(currentRate(_weiRaised));
             }
 
             return tokenAmount;
@@ -269,13 +269,13 @@ contract Crowdsale is Ownable {
       * Calculate wei limit which can be invested to get tokens by current step rate
       * @param _weiRaised wei already raised
       */
-    function weiLimitOfCurrentStep(uint256 _weiRaised) constant public returns(uint256) {
+    function weiLimitOfCurrentStep(uint256 _weiRaised) view public returns(uint256) {
         if (_weiRaised < FIRST_STEP_UPPER_LIMIT) {
-            return FIRST_STEP_UPPER_LIMIT.safeSub(_weiRaised);
+            return FIRST_STEP_UPPER_LIMIT.sub(_weiRaised);
         } else if (_weiRaised < SECOND_STEP_UPPER_LIMIT ) {
-            return SECOND_STEP_UPPER_LIMIT.safeSub(_weiRaised);
+            return SECOND_STEP_UPPER_LIMIT.sub(_weiRaised);
         } else if (_weiRaised < CROWDFUND_HARD_CAP) {
-            return CROWDFUND_HARD_CAP.safeSub(_weiRaised);
+            return CROWDFUND_HARD_CAP.sub(_weiRaised);
         } else {
             return 0;
         }
@@ -286,9 +286,9 @@ contract Crowdsale is Ownable {
       * Function used to determine if user can invest all wanted wei amount.
       * @param _weiAmount wei that investor want to invest
       */
-    function investmentWeiLimit(uint256 _weiAmount) constant private returns(uint256) {
-        if (CROWDFUND_HARD_CAP <= weiRaised.safeAdd(_weiAmount)) {
-            return CROWDFUND_HARD_CAP.safeSub(weiRaised);
+    function investmentWeiLimit(uint256 _weiAmount) private view returns(uint256) {
+        if (CROWDFUND_HARD_CAP <= weiRaised.add(_weiAmount)) {
+            return CROWDFUND_HARD_CAP.sub(weiRaised);
         } else {
             return _weiAmount;
         }
@@ -298,7 +298,7 @@ contract Crowdsale is Ownable {
       * Calculate token rate by already raised wei.
       * @param _weiRaised wei that already was raised
       */
-    function currentRate(uint256 _weiRaised) constant public  returns(uint256) {
+    function currentRate(uint256 _weiRaised) view public  returns(uint256) {
         if (_weiRaised < FIRST_STEP_UPPER_LIMIT) {
             return FIRST_STEP_RATE;
         } else if (_weiRaised < SECOND_STEP_UPPER_LIMIT) {
@@ -336,13 +336,13 @@ contract Crowdsale is Ownable {
         address(wallet).transfer(this.balance);
     }
 
-    function isContract(address _addr) private returns (bool is_contract) {
+    function isContract(address _addr) private view returns (bool is_contract) {
         uint length;
         assembly { length := extcodesize(_addr) }
         return length > 0;
     }
 
-    function getState() external constant returns (State) {
+    function getState() external view returns (State) {
         if (finalized) return State.Finalized;
         else if (now > endsAt || weiRaised >= CROWDFUND_HARD_CAP) return State.Finished;
         else if (weiRaised >= FIRST_STEP_UPPER_LIMIT) return State.Success;

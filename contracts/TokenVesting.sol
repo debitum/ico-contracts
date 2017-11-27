@@ -1,4 +1,4 @@
-pragma solidity ^0.4.15;
+pragma solidity 0.4.18;
 
 import './zeppelin/StandardToken.sol';
 import './zeppelin/SafeERC20.sol';
@@ -45,7 +45,7 @@ contract TokenVesting is Ownable, ERC223Receiver {
 
   modifier tokenAmountEnoughForVesting(uint256 additionalSupply) {
     require(additionalSupply > 0);
-    require(token.balanceOf(address(this)) >= totalVestingTokenAmount.safeAdd(additionalSupply));
+    require(token.balanceOf(address(this)) >= totalVestingTokenAmount.add(additionalSupply));
     _;
   }
 
@@ -56,7 +56,7 @@ contract TokenVesting is Ownable, ERC223Receiver {
    * @param _token address of the token contract
    * @param _end timestamp of period till which the tokens will vest
    */
-  function TokenVesting(StandardToken _token, uint _end) {
+  function TokenVesting(StandardToken _token, uint _end) public {
       require(address(_token) != 0x0);
       token = _token;
       endDate = _end;
@@ -77,8 +77,8 @@ contract TokenVesting is Ownable, ERC223Receiver {
         beneficiaryOwners.push(_beneficiary);
       }
 
-      beneficiaries[_beneficiary] = beneficiaries[_beneficiary].safeAdd(_tokenAmount);
-      totalVestingTokenAmount = totalVestingTokenAmount.safeAdd(_tokenAmount);
+      beneficiaries[_beneficiary] = beneficiaries[_beneficiary].add(_tokenAmount);
+      totalVestingTokenAmount = totalVestingTokenAmount.add(_tokenAmount);
       BeneficiaryAdded(_beneficiary, _tokenAmount, now);
   }
 
@@ -136,7 +136,7 @@ contract TokenVesting is Ownable, ERC223Receiver {
       uint256 beneficiary = beneficiaries[_beneficiary];
       beneficiaries[_beneficiary] = 0;
       token.safeTransfer(owner, beneficiary);
-      totalVestingTokenAmount = totalVestingTokenAmount.safeSub(beneficiary);
+      totalVestingTokenAmount = totalVestingTokenAmount.sub(beneficiary);
 
       for (uint i = 0; i < beneficiaryOwners.length - 1; i++) {
         if (beneficiaryOwners[i] == _beneficiary) {
@@ -151,13 +151,13 @@ contract TokenVesting is Ownable, ERC223Receiver {
       BeneficiaryRemoved(_beneficiary, now);
   }
 
-  function tokenFallback(address _origin, uint _value, bytes _data) public returns (bool ok) {
+  function tokenFallback(address /*_origin*/, uint /*_value*/, bytes /*_data*/) public returns (bool ok) {
     require(supportsToken(msg.sender));
     return true;
   }
 
-  function supportsToken(address _token) public returns (bool){
-    return true;//_token == address(token);
+  function supportsToken(address _token) public view returns (bool){
+    return _token == address(token);
   }
 
 }

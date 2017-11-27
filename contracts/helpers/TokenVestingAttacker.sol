@@ -10,10 +10,10 @@ contract TokenVestingAttacker {
         tokenVesting = TokenVesting(vestingContract);
     }
 
-    function () payable {
+    function () public payable {
     }
 
-    function tokenFallback(address _origin, uint _value, bytes _data) returns (bool){
+    function tokenFallback(address /*_origin*/, uint /*_value*/, bytes /*_data*/) public returns (bool){
         tokenVesting.release();
         return true;
     }

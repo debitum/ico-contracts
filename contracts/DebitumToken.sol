@@ -1,4 +1,4 @@
-pragma solidity ^0.4.15;
+pragma solidity 0.4.18;
 
 import './FreezableToken.sol';
 
@@ -9,7 +9,7 @@ contract DebitumToken is FreezableToken {
     uint8 public constant decimals = 18;
     uint256 public constant totalSupply = 1000000000 * 1 ether;
 
-    function DebitumToken() {
+    function DebitumToken() public {
         balances[msg.sender]  = totalSupply;
     }
 

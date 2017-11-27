@@ -1,4 +1,4 @@
-pragma solidity ^0.4.15;
+pragma solidity 0.4.18;
 
 import './interface/iERC223Receiver.sol';
 import './zeppelin/StandardToken.sol';
@@ -76,8 +76,8 @@ contract MultiSigWallet is ERC223Receiver {
       * event for needed confirmation requirement change logging
       * @param required number of confirmation needed for action to be proceeded
       * @param createdOn time of log
-      */
-    event RequirementChange(uint required, uint256 createdOn);
+      *//*
+    event RequirementChange(uint required, uint256 createdOn);*/
 
     // dictionary which shows transaction info by transaction identifer
     mapping (uint => Transaction) public transactions;
@@ -186,7 +186,7 @@ contract MultiSigWallet is ERC223Receiver {
     }
 
     /// @dev Fallback function allows to deposit ether.
-    function() payable {
+    function() public payable {
         if (msg.value > 0){
             Deposit(msg.sender, msg.value, now);
         }
@@ -199,8 +199,6 @@ contract MultiSigWallet is ERC223Receiver {
         public
         validRequirement(_owners.length + 1, _required)
     {
-        require(_owners.length == 0 || _owners.length <= MAX_OWNER_COUNT);
-
         for (uint i = 0; i < _owners.length; i++) {
             require(!(isOwner[_owners[i]] || _owners[i] == 0 || _owners[i] == msg.sender));
             isOwner[_owners[i]] = true;
@@ -234,7 +232,7 @@ contract MultiSigWallet is ERC223Receiver {
 
     function getOwners()
         public
-        constant
+        view
         returns(address[])
     {
         return owners;
@@ -251,7 +249,7 @@ contract MultiSigWallet is ERC223Receiver {
     {
         ownersConfirmedOwnerRemove[owner].push(msg.sender);
         if (ownersConfirmedOwnerRemove[owner].length >= required) {
-            isOwner[owner] = false;
+
             for (uint i=0; i<owners.length - 1; i++) {
                 if (owners[i] == owner) {
                     owners[i] = owners[owners.length - 1];
@@ -259,15 +257,28 @@ contract MultiSigWallet is ERC223Receiver {
                 }
             }
             owners.length -= 1;
-            if (required > owners.length) {
+            /*if (required > owners.length) {
                 changeRequirement(owners.length);
-            }
+            }*/
+            removeOwnersConfirmations(owner);
+            isOwner[owner] = false;
+
             deleteOwnersRemoveApproval(owner);
             OwnerRemoval(owner, now);
         }
     }
 
-    /// @dev Allows to change the number of required confirmations.
+
+
+
+    function removeOwnersConfirmations(address _owner) private {
+        uint[] memory transactionIds = ownersConfirmedTransactions(_owner);
+        for (uint i = 0; i < transactionIds.length; i++) {
+            confirmations[transactionIds[i]][_owner] = false;
+        }
+    }
+
+    /*/// @dev Allows to change the number of required confirmations.
     /// @param _required Number of required confirmations.
     function changeRequirement(uint _required)
         public
@@ -276,7 +287,7 @@ contract MultiSigWallet is ERC223Receiver {
     {
         required = _required;
         RequirementChange(_required, now);
-    }
+    }*/
 
     /// @dev Allows an owner to submit and confirm a transaction.
     /// @param destination Transaction target address.
@@ -288,6 +299,7 @@ contract MultiSigWallet is ERC223Receiver {
         validTransaction(destination, value)
         returns (uint)
     {
+        require(address(this).balance >= value);
         uint transactionId = addTransaction(0x0, destination, value, TransactionType.Standard);
         confirmTransaction(transactionId);
         return transactionId;
@@ -304,6 +316,7 @@ contract MultiSigWallet is ERC223Receiver {
         validTokenTransaction(token, destination, value)
         returns (uint)
     {
+        require(StandardToken(token).balanceOf(address(this)) >= value);
         uint transactionId = addTransaction(token, destination, value, TransactionType.Token);
         confirmTransaction(transactionId);
         return transactionId;
@@ -341,7 +354,7 @@ contract MultiSigWallet is ERC223Receiver {
     /// @return Confirmation status.
     function isConfirmed(uint transactionId)
         public
-        constant
+        view
         returns (bool)
     {
         uint count = 0;
@@ -411,7 +424,7 @@ contract MultiSigWallet is ERC223Receiver {
     /// @return Number of confirmations.
     function getConfirmationCount(uint transactionId)
         public
-        constant
+        view
         returns (uint count)
     {
         for (uint i=0; i<owners.length; i++) {
@@ -427,12 +440,12 @@ contract MultiSigWallet is ERC223Receiver {
     /// @return Total number of transactions after filters are applied.
     function getTransactionCount(bool pending, bool executed)
         public
-        constant
-        returns (uint count)
+        view
+        returns (uint founded)
     {
         for (uint i=0; i < transactionCount; i++) {
             if ((pending && !transactions[i].executed) || (executed && transactions[i].executed)) {
-                count += 1;
+                founded += 1;
             }
         }
     }
@@ -442,7 +455,7 @@ contract MultiSigWallet is ERC223Receiver {
     /// @return balance of tokens
     function tokenBalance(StandardToken token)
         public
-        constant
+        view
         returns(uint)
     {
         return token.balanceOf(address(this));
@@ -454,7 +467,7 @@ contract MultiSigWallet is ERC223Receiver {
     /// @return Returns array of owner addresses.
     function getConfirmations(uint transactionId)
         public
-        constant
+        view
         returns (address[] _confirmations)
     {
         address[] memory confirmationsTemp = new address[](owners.length);
@@ -478,24 +491,71 @@ contract MultiSigWallet is ERC223Receiver {
     /// @return Returns array of transaction IDs.
     function getTransactionIds(uint from, uint to, bool pending, bool executed)
         public
-        constant
+        view
         returns (uint[] _transactionIds)
     {
         uint[] memory transactionIdsTemp = new uint[](transactionCount);
-        uint count = 0;
+        uint count;
         uint i;
-        for (i=0; i<transactionCount; i++){
+        for (i=0; i < transactionCount; i++){
             if ((pending && !transactions[i].executed) ||
             (executed && transactions[i].executed))
             {
                 transactionIdsTemp[count] = i;
+                count +=1;
+            }
+        }
+
+        if(to > count) {
+            to = count;
+        }
+
+        _transactionIds = new uint[](to - from);
+
+        for (i=from; i<to; i++) {
+            _transactionIds[i - from] = transactionIdsTemp[i];
+        }
+    }
+
+    function ownersConfirmedTransactions(address _owner)
+        public
+        view
+        ownerExists(msg.sender)
+        returns(uint[] _transactionIds) {
+        uint[] memory transactionIdsTemp = new uint[](transactionCount);
+        uint count = 0;
+        uint i;
+
+        for (i=0; i < transactionCount; i++){
+            if (confirmations[i][_owner]) {
+                transactionIdsTemp[count] = i;
                 count += 1;
             }
         }
-        _transactionIds = new uint[](to - from);
-        for (i=from; i<to; i++)
-        _transactionIds[i - from] = transactionIdsTemp[i];
+
+        _transactionIds = new uint[](count);
+        for(i = 0; i< count; i++){
+            _transactionIds[i] = transactionIdsTemp[i];
+        }
+
     }
+
+    function getOwnersConfirmedOwnerAdd(address _owner)
+        public
+        ownerExists(msg.sender)
+        view
+        returns(address[]){
+        return ownersConfirmedOwnerAdd[_owner];
+    }
+
+    function getOwnersConfirmedOwnerRemove(address _owner)
+        public
+        ownerExists(msg.sender)
+        view
+        returns(address[]){
+        return ownersConfirmedOwnerRemove[_owner];
+    }
+
 
     function deleteOwnersAddApproval(address _confirmedOwner) private {
         delete ownersConfirmedOwnerAdd[_confirmedOwner];
@@ -508,7 +568,7 @@ contract MultiSigWallet is ERC223Receiver {
 
     /// @dev Implementation of ERC223 receiver fallback function in order to protect
     /// @dev sending tokens (standard ERC223) to smart tokens who doesn't except them
-    function tokenFallback(address _origin, uint _value, bytes _data) public returns (bool ok) {
+    function tokenFallback(address /*_origin*/, uint /*_value*/, bytes /*_data*/) public returns (bool ok) {
         return true;
     }
 }

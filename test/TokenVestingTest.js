@@ -95,4 +95,17 @@ contract('TokenVesting.sol', function (accounts) {
         assert.equal((await token.balanceOf(web3.eth.accounts[1])).toNumber(), web3.toWei(0.5, 'ether'), "Debitum token has to be transferred");
     });
 
+    it('Tokens returned to owner if beneficiary is removed', async function () {
+        //given
+        let ownableTokens = (await token.balanceOf(web3.eth.accounts[0])).toNumber();
+        await token.transfer(tokenVesting.address, web3.toWei(0.5, 'ether'), {from: accounts[0]});
+
+        //when
+        await tokenVesting.addBeneficiary(web3.eth.accounts[2], web3.toWei(0.5, 'ether'), {from: accounts[0]});
+        await tokenVesting.removeBeneficiary(web3.eth.accounts[2], {from: accounts[0]});
+
+        //then
+        assert.equal((await token.balanceOf(web3.eth.accounts[0])).toNumber(), ownableTokens, "Debitum token returned to owner");
+    });
+
 });
