@@ -4,7 +4,7 @@ let DebitumToken = artifacts.require("./DebitumToken.sol");
 contract('MultiSigWallet', function (accounts) {
 
     it('Requires multiple confirmations', async function () {
-        let additionalOwners = accounts.slice(1, 4);
+        let additionalOwners = accounts.slice(0, 4);
         let wallet = await MultiSigWallet.new(additionalOwners, 2);
 
         await wallet.sendTransaction(
@@ -33,7 +33,7 @@ contract('MultiSigWallet', function (accounts) {
 
     it('After getting required confirmations ether transferred to destination', async function () {
         //given
-        let additionalOwners = accounts.slice(1, 4);
+        let additionalOwners = accounts.slice(0, 4);
         const REQUIRED_CONFIRMATIONS = 2;
         const TRANSACTION_DESTINATION = web3.eth.accounts[2];
         const BALANCE_OF_DESTINATION = web3.eth.getBalance(TRANSACTION_DESTINATION);
@@ -61,7 +61,7 @@ contract('MultiSigWallet', function (accounts) {
     it('Transaction can not be added if wallet has not enough balance', async function () {
         //given
         let transferError;
-        let additionalOwners = accounts.slice(1, 4);
+        let additionalOwners = accounts.slice(0, 4);
         const REQUIRED_CONFIRMATIONS = 2;
         const TRANSACTION_DESTINATION = web3.eth.accounts[2];
         const BALANCE_OF_DESTINATION = web3.eth.getBalance(TRANSACTION_DESTINATION);
@@ -92,7 +92,7 @@ contract('MultiSigWallet', function (accounts) {
         //given
         let token = await DebitumToken.new();
         await token.unfreeze();
-        let additionalOwners = accounts.slice(1, 4);
+        let additionalOwners = accounts.slice(0, 4);
         const REQUIRED_CONFIRMATIONS = 2;
         const TRANSACTION_DESTINATION = web3.eth.accounts[2];
         const TRANSACTION_AMOUNT = web3.toWei(2, 'ether');
@@ -114,7 +114,7 @@ contract('MultiSigWallet', function (accounts) {
         let transferError;
         let token = await DebitumToken.new();
         await token.unfreeze();
-        let additionalOwners = accounts.slice(1, 4);
+        let additionalOwners = accounts.slice(0, 4);
         const REQUIRED_CONFIRMATIONS = 2;
         const TRANSACTION_DESTINATION = web3.eth.accounts[2];
         const TRANSACTION_AMOUNT = web3.toWei(2, 'ether');
@@ -133,7 +133,7 @@ contract('MultiSigWallet', function (accounts) {
     it("Eth transaction confirmation cannot be revoked by owner who not confirmed transaction earlier", async function () {
         //given
         let transferError;
-        let additionalOwners = accounts.slice(1, 4);
+        let additionalOwners = accounts.slice(0, 4);
         let wallet = await MultiSigWallet.new(additionalOwners, 4);
         const TRANSACTION_DESTINATION = web3.eth.accounts[2];
         const TRANSACTION_AMOUNT = web3.toWei(2, 'ether');
@@ -161,7 +161,7 @@ contract('MultiSigWallet', function (accounts) {
     });
 
     it("Owner removal needs confirmations of required owners", async function () {
-        let additionalOwners = accounts.slice(1, 5);
+        let additionalOwners = accounts.slice(0, 5);
         const REQUIRED_CONFIRMATION = 3;
         let wallet = await MultiSigWallet.new(additionalOwners, REQUIRED_CONFIRMATION);
 
@@ -187,7 +187,7 @@ contract('MultiSigWallet', function (accounts) {
 
 
     it("Owner add needs confirmations of required owners", async function () {
-        let additionalOwners = accounts.slice(1, 3);
+        let additionalOwners = accounts.slice(0, 3);
         const REQUIRED_CONFIRMATION = 3;
         let wallet = await MultiSigWallet.new(additionalOwners, REQUIRED_CONFIRMATION);
 
@@ -214,7 +214,7 @@ contract('MultiSigWallet', function (accounts) {
 
     it("Token balance can be listed in wallet", async function () {
         //given
-        let additionalOwners = accounts.slice(1, 3);
+        let additionalOwners = accounts.slice(0, 3);
         const REQUIRED_CONFIRMATION = 3;
         let token = await DebitumToken.new();
         await token.unfreeze();
@@ -228,7 +228,7 @@ contract('MultiSigWallet', function (accounts) {
     });
 
     it("Transactions can be listed in wallet", async function () {
-        let additionalOwners = accounts.slice(1, 4);
+        let additionalOwners = accounts.slice(0, 4);
         let wallet = await MultiSigWallet.new(additionalOwners, 2);
 
         await wallet.sendTransaction(
@@ -254,7 +254,7 @@ contract('MultiSigWallet', function (accounts) {
     });
 
     it("After removal, all owners confirmations deleted", async function () {
-        let additionalOwners = accounts.slice(1, 4);
+        let additionalOwners = accounts.slice(0, 4);
         let wallet = await MultiSigWallet.new(additionalOwners, 2);
 
         await wallet.sendTransaction(
@@ -272,6 +272,69 @@ contract('MultiSigWallet', function (accounts) {
         await wallet.removeOwner(web3.eth.accounts[1]);
         await wallet.removeOwner(web3.eth.accounts[1], {from: accounts[1]});
         assert.equal((await wallet.ownersConfirmedTransactions(web3.eth.accounts[1])).length, 0, "After owner was removed all confirmation of corresponding owner was removed ");
+    });
+
+    it("Can unfreeze freezable tokens", async function () {
+        //given
+        let additionalOwners = accounts.slice(0, 4);
+        let wallet = await MultiSigWallet.new(additionalOwners, 2);
+        let token = await DebitumToken.new();
+        await token.transferOwnership(wallet.address);
+
+        //when
+        let transaction = await wallet.unfreezeToken(token.address);
+        let txid = transaction.logs[0].args.transactionId.toNumber();
+
+        //then
+        assert.equal(await token.freezed(), true, "Token freezed");
+
+        //when
+        await wallet.confirmTransaction(txid, {from: accounts[2]});
+
+        //then
+        assert.equal(await token.freezed(), false, "Token unfreezed");
+    });
+
+    it("Can unfreeze freezable tokens", async function () {
+        //given
+        let additionalOwners = accounts.slice(0, 4);
+        let wallet = await MultiSigWallet.new(additionalOwners, 2);
+        let token = await DebitumToken.new();
+        await token.transferOwnership(wallet.address);
+
+        //when
+        let transaction = await wallet.unfreezeToken(token.address);
+        let txid = transaction.logs[0].args.transactionId.toNumber();
+
+        //then
+        assert.equal(await token.freezed(), true, "Token freezed");
+
+        //when
+        await wallet.confirmTransaction(txid, {from: accounts[2]});
+
+        //then
+        assert.equal(await token.freezed(), false, "Token unfreezed");
+    });
+
+    it("Can pass ownership of assets", async function () {
+        //given
+        let additionalOwners = accounts.slice(0, 4);
+        let wallet = await MultiSigWallet.new(additionalOwners, 2);
+        let token = await DebitumToken.new();
+        await token.transferOwnership(wallet.address);
+
+        //when
+        let transaction = await wallet.passOwnership(token.address, web3.eth.accounts[3]);
+        let txid = transaction.logs[0].args.transactionId.toNumber();
+
+        //then
+        assert.equal(await token.owner(), wallet.address, "Wallet is owner of token");
+
+        //when
+        await wallet.confirmTransaction(txid, {from: accounts[2]});
+
+        //then
+        assert.equal(await token.owner(), web3.eth.accounts[3], "New owner defined");
     });
 
 });

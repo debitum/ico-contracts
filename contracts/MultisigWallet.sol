@@ -2,6 +2,9 @@ pragma solidity 0.4.18;
 
 import './interface/iERC223Receiver.sol';
 import './zeppelin/StandardToken.sol';
+import './zeppelin/Ownable.sol';
+import './FreezableToken.sol';
+
 
 
 /**
@@ -41,14 +44,14 @@ contract MultiSigWallet is ERC223Receiver {
       * @param transactionType type of transaction showing if tokens or ether is submited
       * @param createdOn time of log
       */
-    event Submission(uint transactionId, address token, TransactionType transactionType, uint256 createdOn);
+    event Submission(uint indexed transactionId, address indexed token, address indexed newOwner, TransactionType transactionType, uint256 createdOn);
 
     /**
       * event for transaction execution logging
       * @param transactionId transaction identifier
       * @param createdOn time of log
       */
-    event Execution(uint transactionId, uint256 createdOn);
+    event Execution(uint indexed transactionId, uint256 createdOn);
 
     /**
       * event for deposit logging
@@ -56,21 +59,21 @@ contract MultiSigWallet is ERC223Receiver {
       * @param value amount of wei which was sent
       * @param createdOn time of log
       */
-    event Deposit(address sender, uint value, uint256 createdOn);
+    event Deposit(address indexed sender, uint value, uint256 createdOn);
 
     /**
       * event for owner addition logging
       * @param owner new added wallet owner
       * @param createdOn time of log
       */
-    event OwnerAddition(address owner, uint256 createdOn);
+    event OwnerAddition(address indexed owner, uint256 createdOn);
 
     /**
       * event for owner removal logging
       * @param owner wallet owner who was removed from wallet
       * @param createdOn time of log
       */
-    event OwnerRemoval(address owner, uint256 createdOn);
+    event OwnerRemoval(address indexed owner, uint256 createdOn);
 
     /**
       * event for needed confirmation requirement change logging
@@ -104,7 +107,7 @@ contract MultiSigWallet is ERC223Receiver {
     mapping(address => address[]) private ownersConfirmedOwnerRemove;
 
     // Type which identifies if transaction will operate with ethers or tokens
-    enum TransactionType{Standard, Token}
+    enum TransactionType{Standard, Token, Unfreeze, PassOwnership}
 
     // Structure of detailed transaction information
     struct Transaction {
@@ -140,7 +143,7 @@ contract MultiSigWallet is ERC223Receiver {
     }
 
     modifier transactionExists(uint transactionId) {
-        require (transactions[transactionId].destination != 0);
+        require (transactions[transactionId].destination != 0 || transactions[transactionId].token != 0);
         _;
     }
 
@@ -185,6 +188,11 @@ contract MultiSigWallet is ERC223Receiver {
         _;
     }
 
+    modifier validFreezableToken(address token) {
+        require(token != 0x0);
+        _;
+    }
+
     /// @dev Fallback function allows to deposit ether.
     function() public payable {
         if (msg.value > 0){
@@ -197,16 +205,16 @@ contract MultiSigWallet is ERC223Receiver {
     /// @param _required number of needed confirmation to proceed any action
     function MultiSigWallet(address[] _owners, uint _required)
         public
-        validRequirement(_owners.length + 1, _required)
+        validRequirement(_owners.length, _required)
     {
         for (uint i = 0; i < _owners.length; i++) {
-            require(!(isOwner[_owners[i]] || _owners[i] == 0 || _owners[i] == msg.sender));
+            require(!(isOwner[_owners[i]] || _owners[i] == 0));
             isOwner[_owners[i]] = true;
         }
 
         owners = _owners;
-        owners.push(msg.sender);
-        isOwner[msg.sender] = true;
+//        owners.push(msg.sender);
+//        isOwner[msg.sender] = true;
         require(_required <= owners.length);
         required = _required;
     }
@@ -322,6 +330,39 @@ contract MultiSigWallet is ERC223Receiver {
         return transactionId;
     }
 
+    /// @dev Unfreeze freezable token
+    /// @param token address of token SC which which will be unfreezed.
+    function unfreezeToken(address token)
+        public
+        ownerExists(msg.sender)
+        notNull(token)
+        returns (uint)
+    {
+        require(FreezableToken(token).freezed());
+        require(FreezableToken(token).owner() == address(this));
+
+        uint transactionId = addUnfreezeTokenTransaction(token);
+        confirmTransaction(transactionId);
+        return 0;transactionId;
+    }
+
+    /// @dev Unfreeze freezable token
+    /// @param ownableAsset address of SC (type Ownable) whos owner is multi-signature wallet.
+    /// @param newOwner address of new owner.
+    function passOwnership(address ownableAsset, address newOwner)
+        public
+        ownerExists(msg.sender)
+        notNull(ownableAsset)
+        notNull(newOwner)
+        returns (uint)
+    {
+        require(Ownable(ownableAsset).owner() == address(this));
+
+        uint transactionId = addOwnershipPassTransaction(ownableAsset, newOwner);
+        confirmTransaction(transactionId);
+        return transactionId;
+    }
+
     /// @dev Allows an owner to confirm a transaction.
     /// @param transactionId Transaction ID.
     function confirmTransaction(uint transactionId)
@@ -390,6 +431,18 @@ contract MultiSigWallet is ERC223Receiver {
             StandardToken(transactions[transactionId].token).transfer(transactions[transactionId].destination, transactions[transactionId].value);
             Execution(transactionId, now);
             return true;
+        } else if(transactions[transactionId].transactionType == TransactionType.Unfreeze
+                    && isConfirmed(transactionId)) {
+            transactions[transactionId].executed = true;
+            FreezableToken(transactions[transactionId].token).unfreeze();
+            Execution(transactionId, now);
+            return true;
+        } else if(transactions[transactionId].transactionType == TransactionType.PassOwnership
+                    && isConfirmed(transactionId)) {
+            transactions[transactionId].executed = true;
+            Ownable(transactions[transactionId].token).transferOwnership(transactions[transactionId].destination);
+            Execution(transactionId, now);
+            return true;
         }
         return false;
     }
@@ -414,7 +467,49 @@ contract MultiSigWallet is ERC223Receiver {
         });
 
         transactionCount += 1;
-        Submission(transactionId, token, transactionType, now);
+        Submission(transactionId, token, 0x0, transactionType, now);
+        return transactionId;
+    }
+
+    /// @dev Adds a new transaction to the transaction mapping, if transaction does not exist yet.
+    /// @param token Token that has to be unfreezed.
+    /// @return Returns transaction ID.
+    function addUnfreezeTokenTransaction(address token)
+        internal
+        notNull(token)
+        returns (uint)
+    {
+        uint transactionId = transactionCount;
+        transactions[transactionId] = Transaction({
+            destination: 0x0,
+            token: token,
+            value: 0,
+            transactionType: TransactionType.Unfreeze,
+            executed: false
+        });
+
+        transactionCount += 1;
+        Submission(transactionId, token, 0x0, TransactionType.Unfreeze, now);
+        return transactionId;
+    }
+
+    function addOwnershipPassTransaction(address ownableAsset, address newOwner)
+        internal
+        notNull(ownableAsset)
+        notNull(newOwner)
+        returns (uint)
+    {
+        uint transactionId = transactionCount;
+        transactions[transactionId] = Transaction({
+            destination: newOwner,
+            token: ownableAsset,
+            value: 0,
+            transactionType: TransactionType.PassOwnership,
+            executed: false
+        });
+
+        transactionCount += 1;
+        Submission(transactionId, ownableAsset, newOwner, TransactionType.Unfreeze, now);
         return transactionId;
     }
 
@@ -521,7 +616,8 @@ contract MultiSigWallet is ERC223Receiver {
         public
         view
         ownerExists(msg.sender)
-        returns(uint[] _transactionIds) {
+        returns(uint[] _transactionIds)
+    {
         uint[] memory transactionIdsTemp = new uint[](transactionCount);
         uint count = 0;
         uint i;

@@ -55,15 +55,18 @@ contract Crowdsale is Ownable {
     uint256 public FIRST_STEP_UPPER_LIMIT = 4000 * 1 ether;
     uint256 public FIRST_STEP_RATE = 3750;
 
-    uint256 public SECOND_STEP_UPPER_LIMIT = 50000 * 1 ether;
+    uint256 public SECOND_STEP_UPPER_LIMIT = 25000 * 1 ether;
     uint256 public SECOND_STEP_RATE = 3300;
 
-    uint256 public HARD_CAP = 200000 * 1 ether;
+    uint256 public HARD_CAP = 50000 * 1 ether;
     uint256 private CROWDFUND_HARD_CAP = HARD_CAP;
     uint256 public THIRD_STEP_RATE = 2888;
 
     // Max amount of ether which could be invested for ether account which not proceeded verification
     uint256 public constant NOT_VERIFIED_WEI_LIMIT = 30 * 1 ether;
+
+    // Max wei limit that could be contributed by one address
+    uint256 public constant MAX_WEI_LIMIT = 60 * 1 ether;
 
     uint private soldTokenAmount;
 
@@ -111,21 +114,23 @@ contract Crowdsale is Ownable {
         require(!isContract(msg.sender));
         require(now >= startsAt && now <= endsAt);
         require(msg.value >= 0.1 * 1 ether);
-        require(weiRaised < CROWDFUND_HARD_CAP);
+        require(weiRaised < FIRST_STEP_UPPER_LIMIT);
+        //require(weiRaised < CROWDFUND_HARD_CAP);
         _;
     }
 
     modifier isCrowdsaleFinished() {
-        require(now > endsAt || weiRaised >= CROWDFUND_HARD_CAP);
+        require(now > endsAt || weiRaised >= FIRST_STEP_UPPER_LIMIT);
+        //require(now > endsAt || weiRaised >= CROWDFUND_HARD_CAP);
         _;
     }
 
-    modifier canChangeHardCap(uint256 _newHardCap, address signer) {
+    /*modifier canChangeHardCap(uint256 _newHardCap, address signer) {
         require(isCrowdsaleParticipantSigner[signer]);
         require(_newHardCap > SECOND_STEP_UPPER_LIMIT && _newHardCap <= HARD_CAP);
         require(_newHardCap > weiRaised);
         _;
-    }
+    }*/
 
     modifier canAddCrowdsaleParticipants(address signer) {
         require(isCrowdsaleParticipantSigner[signer]);
@@ -133,7 +138,8 @@ contract Crowdsale is Ownable {
     }
 
     modifier verifiedForCrowdsale {
-        require(isRegisteredEthereumAddress[msg.sender] || investedAmountOf[msg.sender].add(msg.value) <= NOT_VERIFIED_WEI_LIMIT);
+        require(isRegisteredEthereumAddress[msg.sender] || investedAmountOf[msg.sender] < NOT_VERIFIED_WEI_LIMIT);
+        require(investedAmountOf[msg.sender] < MAX_WEI_LIMIT);
         _;
     }
 
@@ -219,7 +225,7 @@ contract Crowdsale is Ownable {
         verifiedForCrowdsale
         payable
     {
-        uint256 weiAmount = investmentWeiLimit(msg.value);
+        uint256 weiAmount = investmentWeiLimit(allowedContribution(msg.sender, msg.value));
 
         // calculate token amount to be transferred
         uint256 tokens = calculateTokenAmountFor(weiRaised, weiAmount);
@@ -235,12 +241,12 @@ contract Crowdsale is Ownable {
         TokenPurchased(msg.sender, weiAmount, tokens, now);
     }
 
-    function changeHardCap(uint256 _newHardCap)
+    /*function changeHardCap(uint256 _newHardCap)
         external
         canChangeHardCap(_newHardCap, msg.sender)
     {
         CROWDFUND_HARD_CAP = _newHardCap;
-    }
+    }*/
 
     /**
       * Calculate token amount for purchase
@@ -272,10 +278,10 @@ contract Crowdsale is Ownable {
     function weiLimitOfCurrentStep(uint256 _weiRaised) view public returns(uint256) {
         if (_weiRaised < FIRST_STEP_UPPER_LIMIT) {
             return FIRST_STEP_UPPER_LIMIT.sub(_weiRaised);
-        } else if (_weiRaised < SECOND_STEP_UPPER_LIMIT ) {
+        /*} else if (_weiRaised < SECOND_STEP_UPPER_LIMIT ) {
             return SECOND_STEP_UPPER_LIMIT.sub(_weiRaised);
         } else if (_weiRaised < CROWDFUND_HARD_CAP) {
-            return CROWDFUND_HARD_CAP.sub(_weiRaised);
+            return CROWDFUND_HARD_CAP.sub(_weiRaised);*/
         } else {
             return 0;
         }
@@ -287,10 +293,26 @@ contract Crowdsale is Ownable {
       * @param _weiAmount wei that investor want to invest
       */
     function investmentWeiLimit(uint256 _weiAmount) private view returns(uint256) {
-        if (CROWDFUND_HARD_CAP <= weiRaised.add(_weiAmount)) {
+        /*if (CROWDFUND_HARD_CAP <= weiRaised.add(_weiAmount)) {
             return CROWDFUND_HARD_CAP.sub(weiRaised);
         } else {
             return _weiAmount;
+        }*/
+
+        if (FIRST_STEP_UPPER_LIMIT <= weiRaised.add(_weiAmount)) {
+            return FIRST_STEP_UPPER_LIMIT.sub(weiRaised);
+        } else {
+            return _weiAmount;
+        }
+    }
+
+    function allowedContribution(address _participant, uint256 _value) public view returns(uint256) {
+        uint256 limits = isRegisteredEthereumAddress[_participant] ? MAX_WEI_LIMIT: NOT_VERIFIED_WEI_LIMIT;
+
+        if(investedAmountOf[_participant].add(_value) <= limits){
+            return _value;
+        } else {
+            return limits.sub(investedAmountOf[_participant]);
         }
     }
 
@@ -301,10 +323,10 @@ contract Crowdsale is Ownable {
     function currentRate(uint256 _weiRaised) view public  returns(uint256) {
         if (_weiRaised < FIRST_STEP_UPPER_LIMIT) {
             return FIRST_STEP_RATE;
-        } else if (_weiRaised < SECOND_STEP_UPPER_LIMIT) {
+        /*} else if (_weiRaised < SECOND_STEP_UPPER_LIMIT) {
             return SECOND_STEP_RATE;
         } else if (_weiRaised < CROWDFUND_HARD_CAP) {
-            return THIRD_STEP_RATE;
+            return THIRD_STEP_RATE;*/
         } else {
             return 0;
         }
@@ -322,9 +344,10 @@ contract Crowdsale is Ownable {
         notFinalized
     {
         finalized = true;
-        token.unfreeze();
+        //token.unfreeze();
         token.transfer(address(wallet), token.balanceOf(address(this)));
         forwardFunds();
+        token.transferOwnership(address(wallet));
         CrowdsaleFinalized(msg.sender, now);
     }
 
@@ -343,10 +366,13 @@ contract Crowdsale is Ownable {
     }
 
     function getState() external view returns (State) {
-        if (finalized) return State.Finalized;
+        /*if (finalized) return State.Finalized;
         else if (now > endsAt || weiRaised >= CROWDFUND_HARD_CAP) return State.Finished;
         else if (weiRaised >= FIRST_STEP_UPPER_LIMIT) return State.Success;
         else if (now >= startsAt) return State.Funding;
+        else return State.PreFunding;*/
+        if (finalized) return State.Finalized;
+        else if (now > endsAt || weiRaised >= FIRST_STEP_UPPER_LIMIT) return State.Finished;
         else return State.PreFunding;
     }
 

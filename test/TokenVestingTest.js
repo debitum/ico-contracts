@@ -64,7 +64,7 @@ contract('TokenVesting.sol', function (accounts) {
 
         //then
         assert.equal((await token.balanceOf(web3.eth.accounts[2])).toNumber(), web3.toWei(1, 'ether'), "One Debitum token has to be transferred");
-        assert.equal((await token.balanceOf(web3.eth.accounts[0])).toNumber(), (await token.totalSupply()).toNumber() - web3.toWei(1, 'ether'), "Not used tokens returned to owner");
+        assert.equal((await token.balanceOf(web3.eth.accounts[0])).toNumber(),  web3.toWei(400000000 - 1, 'ether'), "Not used tokens returned to owner");
     });
 
     it('Token can be vested form save user just once', async function () {

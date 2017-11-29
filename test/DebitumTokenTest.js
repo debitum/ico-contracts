@@ -11,7 +11,7 @@ contract('DebitumToken.sol', function (accounts) {
     it("Token contract should return the correct total supply after construction", async function() {
         let totalSupply = await token.totalSupply();
 
-        assert.equal(totalSupply.toNumber(), web3.toWei(1000000000, 'ether'));
+        assert.equal(totalSupply.toNumber(), web3.toWei(400000000, 'ether'));
     });
 
     it('Token should throw an error when trying to transfer to 0x0', async function() {
@@ -72,7 +72,7 @@ contract('DebitumToken.sol', function (accounts) {
         balance1 = (await token.balanceOf(web3.eth.accounts[1])).toNumber();
         balance2 = (await token.balanceOf(web3.eth.accounts[2])).toNumber();
 
-        assert.equal(balance0, web3.toWei(1000000000 - 100, 'ether'));
+        assert.equal(balance0, web3.toWei(400000000 - 100, 'ether'));
         assert.equal(balance1, 0);
         assert.equal(balance2, web3.toWei(100, 'ether'));
     });
@@ -81,7 +81,7 @@ contract('DebitumToken.sol', function (accounts) {
         let TokenContract = await DebitumToken.new(accounts[0]);
         let transfer = await TokenContract.transfer(accounts[1], web3.toWei(100, 'ether'));
         let balance0 = await TokenContract.balanceOf(accounts[0]);
-        assert.equal(balance0.toNumber(), web3.toWei(999999900, 'ether'));
+        assert.equal(balance0.toNumber(), web3.toWei(400000000-100, 'ether'));
 
         let balance1 = await TokenContract.balanceOf(accounts[1]);
         assert.equal(balance1.toNumber(), web3.toWei(100, 'ether'));
