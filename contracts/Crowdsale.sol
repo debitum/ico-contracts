@@ -55,10 +55,10 @@ contract Crowdsale is Ownable {
     uint256 public FIRST_STEP_UPPER_LIMIT = 4000 * 1 ether;
     uint256 public FIRST_STEP_RATE = 3750;
 
-    uint256 public SECOND_STEP_UPPER_LIMIT = 25000 * 1 ether;
+    uint256 public SECOND_STEP_UPPER_LIMIT = 50000 * 1 ether;
     uint256 public SECOND_STEP_RATE = 3300;
 
-    uint256 public HARD_CAP = 50000 * 1 ether;
+    uint256 public HARD_CAP = 200000 * 1 ether;
     uint256 private CROWDFUND_HARD_CAP = HARD_CAP;
     uint256 public THIRD_STEP_RATE = 2888;
 

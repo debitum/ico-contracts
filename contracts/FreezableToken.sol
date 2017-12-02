@@ -54,7 +54,8 @@ contract FreezableToken is iERC223Token, StandardToken, Ownable {
     function contractFallback(address _origin, address _to, uint _value, bytes _data) private returns (bool) {
         ContractTransfer(_origin, _to, _value, _data);
         ERC223Receiver reciever = ERC223Receiver(_to);
-        return reciever.tokenFallback(_origin, _value, _data);
+        require(reciever.tokenFallback(_origin, _value, _data));
+        return true;
     }
 
     //assemble the given address bytecode. If bytecode exists then the _addr is a contract.

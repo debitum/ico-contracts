@@ -113,6 +113,7 @@ contract TokenVesting is Ownable, ERC223Receiver {
     canRelease
   {
       uint256 beneficiary;
+
       for (uint i = 0; i < beneficiaryOwners.length; i++) {
         if(beneficiaries[beneficiaryOwners[i]] > 0){
             beneficiary = beneficiaries[beneficiaryOwners[i]];
@@ -133,22 +134,24 @@ contract TokenVesting is Ownable, ERC223Receiver {
       canRemoveBeneficiary(_beneficiary)
       onlyOwner
   {
-      uint256 beneficiary = beneficiaries[_beneficiary];
-      beneficiaries[_beneficiary] = 0;
-      token.safeTransfer(owner, beneficiary);
-      totalVestingTokenAmount = totalVestingTokenAmount.sub(beneficiary);
+      if(beneficiaries[_beneficiary] > 0){
+          uint256 beneficiary = beneficiaries[_beneficiary];
+          beneficiaries[_beneficiary] = 0;
+          token.safeTransfer(owner, beneficiary);
+          totalVestingTokenAmount = totalVestingTokenAmount.sub(beneficiary);
 
-      for (uint i = 0; i < beneficiaryOwners.length - 1; i++) {
-        if (beneficiaryOwners[i] == _beneficiary) {
-            beneficiaryOwners[i] = beneficiaryOwners[beneficiaryOwners.length - 1];
-            break;
-        }
+          for (uint i = 0; i < beneficiaryOwners.length - 1; i++) {
+            if (beneficiaryOwners[i] == _beneficiary) {
+                beneficiaryOwners[i] = beneficiaryOwners[beneficiaryOwners.length - 1];
+                break;
+            }
+          }
+
+          delete beneficiaryOwners[beneficiaryOwners.length - 1];
+          beneficiaryOwners.length--;
+
+          BeneficiaryRemoved(_beneficiary, now);
       }
-
-      delete beneficiaryOwners[beneficiaryOwners.length - 1];
-      beneficiaryOwners.length--;
-
-      BeneficiaryRemoved(_beneficiary, now);
   }
 
   function tokenFallback(address /*_origin*/, uint /*_value*/, bytes /*_data*/) public returns (bool ok) {

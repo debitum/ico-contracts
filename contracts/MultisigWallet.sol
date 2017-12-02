@@ -153,11 +153,13 @@ contract MultiSigWallet is ERC223Receiver {
     }
 
     modifier notConfirmed(uint transactionId, address owner) {
+        require(transactionId >= 0 && transactionId < transactionCount);
         require(!confirmations[transactionId][owner]);
         _;
     }
 
     modifier notExecuted(uint transactionId) {
+        require(transactionId >= 0 && transactionId < transactionCount);
         require(!transactions[transactionId].executed);
         _;
     }
@@ -343,7 +345,7 @@ contract MultiSigWallet is ERC223Receiver {
 
         uint transactionId = addUnfreezeTokenTransaction(token);
         confirmTransaction(transactionId);
-        return 0;transactionId;
+        return transactionId;
     }
 
     /// @dev Unfreeze freezable token
