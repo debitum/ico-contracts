@@ -57,10 +57,10 @@ contract CrowdsaleStageB is Ownable {
     // Is crowdsale finalized
     bool public finalized;
 
-    uint256 public SECOND_STEP_UPPER_LIMIT = 25000 * (10 ** uint256(18));
+    uint256 public SECOND_STEP_UPPER_LIMIT = 21000 * (10 ** uint256(18));
     uint256 public SECOND_STEP_RATE = 3300;
 
-    uint256 public HARD_CAP = 50000 * 1 ether;
+    uint256 public HARD_CAP = 46000 * 1 ether;
     uint256 private CROWDFUND_HARD_CAP = HARD_CAP;
     uint256 public THIRD_STEP_RATE = 2888;
 
@@ -134,6 +134,12 @@ contract CrowdsaleStageB is Ownable {
         require(isCrowdsaleParticipantSigner[signer]);
         require(_newHardCap > SECOND_STEP_UPPER_LIMIT && _newHardCap <= HARD_CAP);
         require(_newHardCap > weiRaised);
+        _;
+    }
+
+    modifier canIncreaseEndDate(uint256 _endsAt) {
+        require(isCrowdsaleParticipantSigner[msg.sender]);
+        require(endsAt < _endsAt);
         _;
     }
 
@@ -212,6 +218,14 @@ contract CrowdsaleStageB is Ownable {
         wallet = _wallet;
         startsAt = _start;
         endsAt = _end;
+    }
+
+    function increaseEndsDate(uint256 _endsAt)
+        external
+        canIncreaseEndDate(_endsAt)
+        notFinalized
+    {
+        endsAt = _endsAt;
     }
 
     function mapExchanges() private {

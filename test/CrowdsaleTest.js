@@ -27,19 +27,6 @@ contract('Crowdsale.sol', function (accounts) {
         assert.equal(tokenAmount.toNumber(), web3.toWei(15000000, 'ether'), "15M tokens sold");
     });
 
-    /*it("Should return token rate by raised wei", async function () {
-        let rate = await crowdsale.currentRate(0);
-        assert.equal(rate.toNumber(), 3750, "First step rate is equal to 3750");
-
-        rate = await crowdsale.currentRate(web3.toWei(4000.0001, 'ether'));
-        assert.equal(rate.toNumber(), 3300, "Second step rate is equal to 3300");
-
-        rate = await crowdsale.currentRate(web3.toWei(50000.0001, 'ether'));
-        assert.equal(rate.toNumber(), 2888, "Third step rate is equal to 2888");
-
-        rate = await crowdsale.currentRate(web3.toWei(200000.0001, 'ether'));
-        assert.equal(rate.toNumber(), 0, "When hard cap is reached then token rate is equal to 0");
-    });*/
 
     it("Should count left wei till step limit", async function () {
         let epsilon = 0.0001;
@@ -70,51 +57,6 @@ contract('Crowdsale.sol', function (accounts) {
 
     });
 
-    /*it("When hard cap is reached then crowdsale is finished", async function () {
-        let now = Math.round(new Date().getTime() / 1000);
-        crowdsale = await Crowdsale.new(
-            now,
-            now + 3600,
-            accounts[7],
-            web3.toWei(0.9, 'ether'),
-            3750,
-            web3.toWei(4, 'ether'),
-            3300,
-            web3.toWei(5, 'ether'),
-            2888
-        );
-
-        await crowdsale.sendTransaction(
-            {
-                from: web3.eth.accounts[0],
-                to: contract.address,
-                value: web3.toWei(1.3, 'ether'),
-            }
-        );
-
-        await crowdsale.sendTransaction(
-            {
-                from: web3.eth.accounts[1],
-                to: contract.address,
-                value: web3.toWei(2, 'ether'),
-            }
-        );
-
-        await crowdsale.sendTransaction(
-            {
-                from: web3.eth.accounts[2],
-                to: contract.address,
-                value: web3.toWei(2, 'ether'),
-            }
-        );
-        let token = DebitumToken.at(await crowdsale.token());
-
-        await crowdsale.finalizeCrowdsale();
-        assert.equal((await token.balanceOf(web3.eth.accounts[0])).toNumber(), web3.toWei(3375 + 1320, 'ether'), "First step investor gets 7500 tokens")
-        assert.equal((await token.balanceOf(web3.eth.accounts[1])).toNumber(), web3.toWei(3300 * 2, 'ether'), "Second step investor gets 6600 tokens")
-        assert.equal((await token.balanceOf(web3.eth.accounts[2])).toNumber(), web3.toWei(2310 + 2888, 'ether'), "Third step investor gets 5776 tokens")
-
-    });*/
 
     it("When First step limit is reached then Rounds A crowdsale is finished", async function () {
         let now = Math.round(new Date().getTime() / 1000);
@@ -203,74 +145,9 @@ contract('Crowdsale.sol', function (accounts) {
         );
     });
 
-    /*it("Let decrease initial hard cap if wei is not raised till new hard cap", async function () {
-        //given
-        let transferError;
-        let now = Math.round(new Date().getTime() / 1000);
-        let SIGNER = accounts[0];
-        crowdsale = await Crowdsale.new(
-            now,
-            now + 3600,
-            SIGNER,
-            web3.toWei(1, 'ether'),
-            3750,
-            web3.toWei(2, 'ether'),
-            3300,
-            web3.toWei(5, 'ether'),
-            2888
-        );
 
-        //when
-        try {
-            await crowdsale.canChangeHardCap(web3.toWei(4, 'ether'));
-        }catch (error) {
-            transferError = error;
-        }
 
-        await crowdsale.changeHardCap(web3.toWei(4.1, 'ether'));
 
-        await crowdsale.sendTransaction(
-            {
-                from: web3.eth.accounts[2],
-                to: contract.address,
-                value: web3.toWei(5, 'ether'),
-            }
-        );
-
-        //then
-        assert.notEqual(transferError, undefined, 'Error must be thrown, when new hard cap value is lower or equal when wei raised');
-        assert.equal((await  crowdsale.weiRaised()).toNumber(), web3.toWei(4.1, 'ether'), "Wei raised till new hard cap");
-    });
-*/
-
-    /*it("Hard cap can not be increased above of initial hard cap", async function () {
-        //given
-        let transferError;
-        let now = Math.round(new Date().getTime() / 1000);
-        let SIGNER = accounts[0];
-        crowdsale = await Crowdsale.new(
-            now,
-            now + 3600,
-            SIGNER,
-            web3.toWei(1, 'ether'),
-            3750,
-            web3.toWei(2, 'ether'),
-            3300,
-            web3.toWei(5, 'ether'),
-            2888
-        );
-
-        //when
-        await crowdsale.changeHardCap(web3.toWei(4.1, 'ether'));
-        try {
-            await crowdsale.canChangeHardCap(web3.toWei(5.001, 'ether'));
-        }catch (error) {
-            transferError = error;
-        }
-
-        //then
-        assert.notEqual(transferError, undefined, 'Error must be thrown, when new hard cap value is above initial hard cap');
-    });*/
 
     it("Wont accept investments bellow 0.1 ether", async function () {
         //given
