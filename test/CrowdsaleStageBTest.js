@@ -1,3 +1,4 @@
+
 let Crowdsale = artifacts.require("./CrowdsaleStageB.sol");
 let DebitumToken = artifacts.require("./DebitumToken.sol");
 let MultiSigWallet = artifacts.require("./MultiSigWallet.sol");
@@ -14,7 +15,7 @@ contract('CrowdsaleStageB.sol', function (accounts) {
         await token.unfreeze();
 
         let now = Math.round(new Date().getTime() / 1000);
-        crowdsale = await Crowdsale.new(now, now + 3600, accounts[7], token.address, [accounts[7]], 0, 0, 0, 0);
+        crowdsale = await Crowdsale.new(now, now + 3600, accounts[7], token.address, [accounts[7]], [], []);
         let totalSupply = (await token.totalSupply()).toNumber();
         await token.transfer(crowdsale.address, totalSupply);
     });
@@ -24,12 +25,12 @@ contract('CrowdsaleStageB.sol', function (accounts) {
 
         expectError(
             crowdsale.sendTransaction(
-            {
-                from: kraken_wallet,
-                to: contract.address,
-                value: web3.toWei(1.2, 'ether'),
-            }
-        ));
+                {
+                    from: kraken_wallet,
+                    to: contract.address,
+                    value: web3.toWei(1.2, 'ether'),
+                }
+            ));
 
         crowdsale.sendTransaction(
             {
@@ -38,7 +39,7 @@ contract('CrowdsaleStageB.sol', function (accounts) {
                 value: web3.toWei(1.2, 'ether'),
             }
         );
-        assert.equal((await token.balanceOf(web3.eth.accounts[6])).toNumber(), web3.toWei(3960, 'ether'), "Investor gets 3960 tokens for 1.2 ether contribution")
+        assert.equal((await token.balanceOf(web3.eth.accounts[6])).toNumber(), web3.toWei(9300, 'ether'), "Investor gets 9300 tokens for 1.2 ether contribution")
     });
 
     it("Let decrease initial hard cap if wei is not raised till new hard cap", async function () {
@@ -54,10 +55,8 @@ contract('CrowdsaleStageB.sol', function (accounts) {
             accounts[7],
             token.address,
             [accounts[7]],
-            web3.toWei(2, 'ether'),
-            3300,
-            web3.toWei(5, 'ether'),
-            2888
+            [web3.toWei(1, 'ether'), web3.toWei(2, 'ether'),web3.toWei(3, 'ether'), web3.toWei(4, 'ether'),web3.toWei(5, 'ether')],
+            [7800, 7500, 7150, 6850, 6500]
         );
         await token.transfer(crowdsale.address, totalSupply);
 
@@ -88,19 +87,85 @@ contract('CrowdsaleStageB.sol', function (accounts) {
 
     it("Should return token rate by raised wei", async function () {
         let rate = await crowdsale.currentRate(0);
-        assert.equal(rate.toNumber(), 3300, "Second step rate is equal to 3300");
+        assert.equal(rate.toNumber(), 7800, "Firs step rate is equal to 7800");
 
-        rate = await crowdsale.currentRate(web3.toWei(20999.999, 'ether'));
-        assert.equal(rate.toNumber(), 3300, "Second step rate is equal to 3300");
+        rate = await crowdsale.currentRate(web3.toWei(499.9999, 'ether'));
+        assert.equal(rate.toNumber(), 7800, "Firs step rate is equal to 7800");
 
-        rate = await crowdsale.currentRate(web3.toWei(21000.0001, 'ether'));
-        assert.equal(rate.toNumber(), 2888, "Third step rate is equal to 2888");
+        rate = await crowdsale.currentRate(web3.toWei(500.0001, 'ether'));
+        assert.equal(rate.toNumber(), 7500, "Second step rate bottom is equal to 7500");
 
-        rate = await crowdsale.currentRate(web3.toWei(45999.999, 'ether'));
-        assert.equal(rate.toNumber(), 2888, "Third step rate is equal to 2888");
+        rate = await crowdsale.currentRate(web3.toWei(5999.999, 'ether'));
+        assert.equal(rate.toNumber(), 7500, "Second step rate top is equal to 7500");
 
-        rate = await crowdsale.currentRate(web3.toWei(46000.0001, 'ether'));
+        rate = await crowdsale.currentRate(web3.toWei(6000.0001, 'ether'));
+        assert.equal(rate.toNumber(), 7150, "Third step rate is equal to 7150");
+
+        rate = await crowdsale.currentRate(web3.toWei(13999.999, 'ether'));
+        assert.equal(rate.toNumber(), 7150, "Third step rate is equal to 7150");
+
+        rate = await crowdsale.currentRate(web3.toWei(14000.0001, 'ether'));
+        assert.equal(rate.toNumber(), 6850, "Fourth step rate is equal to 6850");
+
+        rate = await crowdsale.currentRate(web3.toWei(19999.999, 'ether'));
+        assert.equal(rate.toNumber(), 6850, "Third step rate is equal to 6850");
+
+        rate = await crowdsale.currentRate(web3.toWei(20000.0001, 'ether'));
         assert.equal(rate.toNumber(), 0, "When hard cap is reached then token rate is equal to 0");
+    });
+
+    it("Contributors amount is monitored", async function () {
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[2],
+                to: contract.address,
+                value: web3.toWei(0.1, 'ether'),
+            }
+        );
+
+
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[1],
+                to: contract.address,
+                value: web3.toWei(0.2, 'ether'),
+            }
+        );
+
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[2],
+                to: contract.address,
+                value: web3.toWei(0.2, 'ether'),
+            }
+        );
+
+        await crowdsale.sendTransaction(
+            {
+                from: web3.eth.accounts[3],
+                to: contract.address,
+                value: web3.toWei(0.4, 'ether'),
+            }
+        );
+
+        let uniqueContributors = await crowdsale.uniqueContributors();
+        assert.equal(uniqueContributors.toNumber(), 3, "Contrac counts unique contributors");
+
+        let contributor1 = await crowdsale.contributors(0);
+        let contribution1 = await crowdsale.investedAmountOf(contributor1);
+        assert.equal(contributor1, web3.eth.accounts[2], "Contrac shows first contributor");
+        assert.equal(contribution1.toNumber(), web3.toWei(0.3, 'ether'), "Contrac shows first contributor investments");
+
+        let contributor2 = await crowdsale.contributors(1);
+        let contribution2 = await crowdsale.investedAmountOf(contributor2);
+        assert.equal(contributor2, web3.eth.accounts[1], "Contrac shows second contributor");
+        assert.equal(contribution2.toNumber(), web3.toWei(0.2, 'ether'), "Contrac shows second contributor investments");
+
+        let contributor3 = await crowdsale.contributors(2);
+        let contribution3 = await crowdsale.investedAmountOf(contributor3);
+        assert.equal(contributor3, web3.eth.accounts[3], "Contrac shows third contributor");
+        assert.equal(contribution3.toNumber(), web3.toWei(0.4, 'ether'), "Contrac shows third contributor investments");
+
     });
 
     it("When hard cap is reached then crowdsale is finished", async function () {
@@ -113,10 +178,8 @@ contract('CrowdsaleStageB.sol', function (accounts) {
             accounts[7],
             token.address,
             [accounts[7]],
-            web3.toWei(2, 'ether'),
-            3300,
-            web3.toWei(5, 'ether'),
-            2888
+            [web3.toWei(1, 'ether'), web3.toWei(2, 'ether'),web3.toWei(3, 'ether'), web3.toWei(4, 'ether'),web3.toWei(5, 'ether')],
+            [7800, 7500, 7150, 6850, 6500]
         );
         let totalSupply = (await token.totalSupply()).toNumber();
         await token.transfer(crowdsale.address, totalSupply);
@@ -169,10 +232,8 @@ contract('CrowdsaleStageB.sol', function (accounts) {
             accounts[7],
             token.address,
             [accounts[7]],
-            web3.toWei(2, 'ether'),
-            3300,
-            web3.toWei(5, 'ether'),
-            2888
+            [web3.toWei(1, 'ether'), web3.toWei(2, 'ether'),web3.toWei(3, 'ether'), web3.toWei(4, 'ether'),web3.toWei(5, 'ether')],
+            [7800, 7500, 7150, 6850, 6500]
         );
         let totalSupply = (await token.totalSupply()).toNumber();
         await token.transfer(crowdsale.address, totalSupply);
@@ -216,10 +277,8 @@ contract('CrowdsaleStageB.sol', function (accounts) {
             accounts[7],
             token.address,
             [accounts[7]],
-            web3.toWei(2, 'ether'),
-            3300,
-            web3.toWei(5, 'ether'),
-            2888
+            [web3.toWei(1, 'ether'), web3.toWei(2, 'ether'),web3.toWei(3, 'ether'), web3.toWei(4, 'ether'),web3.toWei(5, 'ether')],
+            [7800, 7500, 7150, 6850, 6500]
         );
 
         expectError(crowdsale.increaseEndsDate(now - 3600));

@@ -57,12 +57,21 @@ contract CrowdsaleStageB is Ownable {
     // Is crowdsale finalized
     bool public finalized;
 
-    uint256 public SECOND_STEP_UPPER_LIMIT = 21000 * (10 ** uint256(18));
-    uint256 public SECOND_STEP_RATE = 3300;
+    uint256 public FIRST_STEP_UPPER_LIMIT = 500 * (10 ** uint256(18));
+    uint256 public FIRST_STEP_RATE = 7800;
 
-    uint256 public HARD_CAP = 46000 * 1 ether;
+    uint256 public SECOND_STEP_UPPER_LIMIT = 2000 * (10 ** uint256(18));
+    uint256 public SECOND_STEP_RATE = 7500;
+
+    uint256 public THIRD_STEP_UPPER_LIMIT = 6000 * (10 ** uint256(18));
+    uint256 public THIRD_STEP_RATE = 7150;
+
+    uint256 public FOURTH_STEP_UPPER_LIMIT = 14000 * (10 ** uint256(18));
+    uint256 public FOURTH_STEP_RATE = 6850;
+
+    uint256 public HARD_CAP = 20000 * (10 ** uint256(18));
     uint256 private CROWDFUND_HARD_CAP = HARD_CAP;
-    uint256 public THIRD_STEP_RATE = 2888;
+    uint256 public FIFTH_STEP_RATE = 6500;
 
     // Max amount of ether which could be invested for ether account which not proceeded verification
     uint256 public constant NOT_VERIFIED_WEI_LIMIT = 30 * (10 ** uint256(18));
@@ -132,7 +141,7 @@ contract CrowdsaleStageB is Ownable {
 
     modifier canChangeHardCap(uint256 _newHardCap, address signer) {
         require(isCrowdsaleParticipantSigner[signer]);
-        require(_newHardCap > SECOND_STEP_UPPER_LIMIT && _newHardCap <= HARD_CAP);
+        require(_newHardCap > FOURTH_STEP_UPPER_LIMIT && _newHardCap <= HARD_CAP);
         require(_newHardCap > weiRaised);
         _;
     }
@@ -180,27 +189,34 @@ contract CrowdsaleStageB is Ownable {
         MultiSigWallet _wallet,
         DebitumToken _token,
         address[] _exchanges,
-        uint256 _secondStepUpperLimit,
-        uint256 _secondStepRate,
-        uint256 _crowdfundHardCap,
-        uint256 _thirdStepRate
+        uint256[] _steps,
+        uint256[] _rates
+
     ) public {
         require(_start > 0);
         require(_start < _end);
         require(address(_wallet) != 0x0);
+        require(_steps.length == _rates.length);
 
-        if (_secondStepUpperLimit > 0
-            && _secondStepRate > 0
-            && _crowdfundHardCap > 0
-            && _thirdStepRate > 0)
+        if (_steps.length == 5 &&
+        _rates.length == 5)
         {
 
-            SECOND_STEP_UPPER_LIMIT = _secondStepUpperLimit;
-            SECOND_STEP_RATE = _secondStepRate;
+            FIRST_STEP_UPPER_LIMIT = _steps[0];
+            FIRST_STEP_RATE = _rates[0];
 
-            HARD_CAP = _crowdfundHardCap;
-            CROWDFUND_HARD_CAP = _crowdfundHardCap;
-            THIRD_STEP_RATE = _thirdStepRate;
+            SECOND_STEP_UPPER_LIMIT = _steps[1];
+            SECOND_STEP_RATE = _rates[1];
+
+            THIRD_STEP_UPPER_LIMIT = _steps[2];
+            THIRD_STEP_RATE = _rates[2];
+
+            FOURTH_STEP_UPPER_LIMIT = _steps[3];
+            FOURTH_STEP_RATE = _rates[3];
+
+            HARD_CAP = _steps[4];
+            CROWDFUND_HARD_CAP = _steps[4];
+            FIFTH_STEP_RATE = _rates[4];
         }
 
         token = _token;
@@ -221,9 +237,9 @@ contract CrowdsaleStageB is Ownable {
     }
 
     function increaseEndsDate(uint256 _endsAt)
-        external
-        canIncreaseEndDate(_endsAt)
-        notFinalized
+    external
+    canIncreaseEndDate(_endsAt)
+    notFinalized
     {
         endsAt = _endsAt;
     }
@@ -271,8 +287,8 @@ contract CrowdsaleStageB is Ownable {
       * @param _verificationCode code assigned for participant in verifiaction process
       */
     function signCrowdsaleParticipant(address _participant, string _verificationCode)
-        public
-        canAddCrowdsaleParticipants(msg.sender)
+    public
+    canAddCrowdsaleParticipants(msg.sender)
     {
         isRegisteredEthereumAddress[_participant] = true;
         ParticipantVerified(_participant, _verificationCode, now);
@@ -280,11 +296,11 @@ contract CrowdsaleStageB is Ownable {
 
     // token purchase function
     function buyTokens()
-        public
-        investmentCanProceed
-        verifiedForCrowdsale
-        isNotExchange
-        payable
+    public
+    investmentCanProceed
+    verifiedForCrowdsale
+    isNotExchange
+    payable
     {
         uint256 weiAmount = investmentWeiLimit(allowedContribution(msg.sender, msg.value));
 
@@ -308,8 +324,8 @@ contract CrowdsaleStageB is Ownable {
     }
 
     function changeHardCap(uint256 _newHardCap)
-        external
-        canChangeHardCap(_newHardCap, msg.sender)
+    external
+    canChangeHardCap(_newHardCap, msg.sender)
     {
         CROWDFUND_HARD_CAP = _newHardCap;
     }
@@ -342,8 +358,14 @@ contract CrowdsaleStageB is Ownable {
       * @param _weiRaised wei already raised
       */
     function weiLimitOfCurrentStep(uint256 _weiRaised) view public returns(uint256) {
-        if (_weiRaised < SECOND_STEP_UPPER_LIMIT ) {
+        if (_weiRaised < FIRST_STEP_UPPER_LIMIT ) {
+            return FIRST_STEP_UPPER_LIMIT.sub(_weiRaised);
+        } else if (_weiRaised < SECOND_STEP_UPPER_LIMIT ) {
             return SECOND_STEP_UPPER_LIMIT.sub(_weiRaised);
+        } else if (_weiRaised < THIRD_STEP_UPPER_LIMIT ) {
+            return THIRD_STEP_UPPER_LIMIT.sub(_weiRaised);
+        } else if (_weiRaised < FOURTH_STEP_UPPER_LIMIT ) {
+            return FOURTH_STEP_UPPER_LIMIT.sub(_weiRaised);
         } else if (_weiRaised < CROWDFUND_HARD_CAP) {
             return CROWDFUND_HARD_CAP.sub(_weiRaised);
         } else {
@@ -366,7 +388,7 @@ contract CrowdsaleStageB is Ownable {
 
     function allowedContribution(address _participant, uint256 _value) public view returns(uint256) {
         if(isRegisteredEthereumAddress[_participant]
-            || investedAmountOf[_participant].add(_value) <= NOT_VERIFIED_WEI_LIMIT) {
+        || investedAmountOf[_participant].add(_value) <= NOT_VERIFIED_WEI_LIMIT) {
             return _value;
         } else {
             return NOT_VERIFIED_WEI_LIMIT.sub(investedAmountOf[_participant]);
@@ -378,10 +400,16 @@ contract CrowdsaleStageB is Ownable {
       * @param _weiRaised wei that already was raised
       */
     function currentRate(uint256 _weiRaised) view public  returns(uint256) {
-        if (_weiRaised < SECOND_STEP_UPPER_LIMIT) {
+        if (_weiRaised < FIRST_STEP_UPPER_LIMIT) {
+            return FIRST_STEP_RATE;
+        } else if (_weiRaised < SECOND_STEP_UPPER_LIMIT) {
             return SECOND_STEP_RATE;
-        } else if (_weiRaised < CROWDFUND_HARD_CAP) {
+        } else if (_weiRaised < THIRD_STEP_UPPER_LIMIT) {
             return THIRD_STEP_RATE;
+        } else if (_weiRaised < FOURTH_STEP_UPPER_LIMIT) {
+            return FOURTH_STEP_RATE;
+        } else if (_weiRaised < CROWDFUND_HARD_CAP) {
+            return FIFTH_STEP_RATE;
         } else {
             return 0;
         }
@@ -394,9 +422,9 @@ contract CrowdsaleStageB is Ownable {
       * otherwise all invested wei are returned to investors.
       */
     function finalizeCrowdsale()
-        public
-        isCrowdsaleFinished
-        notFinalized
+    public
+    isCrowdsaleFinished
+    notFinalized
     {
         finalized = true;
         token.unfreeze();
@@ -409,14 +437,14 @@ contract CrowdsaleStageB is Ownable {
 
     // @notice Send ether to the fund collection wallet
     function forwardFunds()
-        public
+    public
     {
         address(wallet).transfer(this.balance);
     }
 
     function forwardTokens(StandardToken _standardToken)
-        public
-        canForwardTokens
+    public
+    canForwardTokens
     {
         require(finalized || address(_standardToken) != address(token));
         _standardToken.transfer(address(wallet), _standardToken.balanceOf(address(this)));
