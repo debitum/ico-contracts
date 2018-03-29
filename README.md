@@ -8,7 +8,7 @@ Basic information
 * type: ERC-233
 * symbol: DEB
 * decimal: 18 
-* total: 1 000 000 000 (single issue)
+* total: 400 000 000 (single issue)
 
 
 Instructions
